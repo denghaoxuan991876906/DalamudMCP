@@ -114,7 +114,7 @@ internal sealed class PluginConfigWindowModel
         ArgumentNullException.ThrowIfNull(operations);
         ArgumentNullException.ThrowIfNull(readerStatuses);
 
-        PluginConfigOperationRow[] rows = CreateRows(operations, readerStatuses, out IPluginReaderStatus?[] rowsByReader);
+        PluginConfigOperationRow[] rows = CreateRows(loc, operations, readerStatuses, out IPluginReaderStatus?[] rowsByReader);
         PluginConfigWindowModel model = new(
             loc,
             options.PipeName,
@@ -177,6 +177,7 @@ internal sealed class PluginConfigWindowModel
     }
 
     private static PluginConfigOperationRow[] CreateRows(
+        IUiLocalization loc,
         IReadOnlyList<OperationDescriptor> operations,
         IReadOnlyList<IPluginReaderStatus> readerStatuses,
         out IPluginReaderStatus?[] rowsByReader)
@@ -202,6 +203,7 @@ internal sealed class PluginConfigWindowModel
         {
             OperationDescriptor operation = sortedOperations[index];
             rows[index] = new PluginConfigOperationRow(
+                loc,
                 operation.OperationId,
                 operation.Summary ?? operation.Description ?? operation.OperationId,
                 operation.CliCommandPath is { Count: > 0 } cliPath ? string.Join(' ', cliPath) : null,
@@ -291,22 +293,22 @@ internal sealed class PluginConfigWindowModel
 
 internal sealed class PluginConfigOperationRow
 {
+    private readonly IUiLocalization loc;
+    private bool actionOperationsEnabled;
+    private bool unsafeOperationsEnabled;
+
     public PluginConfigOperationRow(
+        IUiLocalization loc,
         string operationId,
         string summary,
         string? cliCommand,
         string? mcpToolName)
     {
+        this.loc = loc;
         OperationId = operationId;
         Summary = summary;
         CliCommand = cliCommand;
         McpToolName = mcpToolName;
-        CliCommandText = string.IsNullOrWhiteSpace(cliCommand)
-            ? null
-            : "CLI: " + cliCommand;
-        McpToolText = string.IsNullOrWhiteSpace(mcpToolName)
-            ? null
-            : "MCP: " + mcpToolName;
         IsActionOperation = Hosting.PluginOperationExposurePolicy.IsActionOperation(operationId);
         IsUnsafeOperation = Hosting.PluginOperationExposurePolicy.IsUnsafeOperation(operationId);
     }
@@ -319,17 +321,35 @@ internal sealed class PluginConfigOperationRow
 
     public string? McpToolName { get; }
 
-    public string? CliCommandText { get; }
-
-    public string? McpToolText { get; }
-
     public bool? IsReaderReady { get; private set; }
 
     public string? ReaderDetail { get; private set; }
 
-    public string? ReaderStatusText { get; private set; }
+    public string? ReaderStatusText
+    {
+        get
+        {
+            if (IsReaderReady is null) return null;
+            if (string.IsNullOrWhiteSpace(ReaderDetail))
+                return IsReaderReady.Value ? loc["status.reader_ready"] : loc["status.reader_not_ready"];
+            string readiness = IsReaderReady.Value
+                ? loc["status.reader_ready_word"]
+                : loc["status.reader_not_ready_word"];
+            return string.Format(loc["status.reader_detail"], readiness, ReaderDetail);
+        }
+    }
 
-    public string? ExposureStatusText { get; private set; }
+    public string? ExposureStatusText
+    {
+        get
+        {
+            if (IsUnsafeOperation && !unsafeOperationsEnabled)
+                return loc["status.exposure_unsafe_pending"];
+            if (IsActionOperation && !actionOperationsEnabled)
+                return loc["status.exposure_action_pending"];
+            return null;
+        }
+    }
 
     public bool IsActionOperation { get; }
 
@@ -352,38 +372,14 @@ internal sealed class PluginConfigOperationRow
 
         IsReaderReady = isReady;
         ReaderDetail = detail;
-        ReaderStatusText = CreateReaderStatusText(isReady, detail);
     }
 
     internal void UpdateExposureStatus(bool actionOperationsEnabled, bool unsafeOperationsEnabled)
     {
-        string? exposureStatusText =
-            IsUnsafeOperation && !unsafeOperationsEnabled
-                ? "暴露: 已禁用，等待非安全操作启用"
-                : IsActionOperation && !actionOperationsEnabled
-                    ? "暴露: 已禁用，等待动作操作启用"
-                    : null;
-
-        if (string.Equals(ExposureStatusText, exposureStatusText, StringComparison.Ordinal))
-        {
-            IsExposed = exposureStatusText is null;
-            return;
-        }
-
-        ExposureStatusText = exposureStatusText;
-        IsExposed = exposureStatusText is null;
-    }
-
-    private static string? CreateReaderStatusText(bool? isReady, string? detail)
-    {
-        if (isReady is null)
-            return null;
-
-        string readiness = isReady.Value ? "就绪" : "未就绪";
-        if (string.IsNullOrWhiteSpace(detail))
-            return "读取器: " + readiness;
-
-        return $"读取器: {readiness} ({detail})";
+        this.actionOperationsEnabled = actionOperationsEnabled;
+        this.unsafeOperationsEnabled = unsafeOperationsEnabled;
+        IsExposed = !(IsUnsafeOperation && !unsafeOperationsEnabled
+            || IsActionOperation && !actionOperationsEnabled);
     }
 
     private static void TryReadReaderStatus(

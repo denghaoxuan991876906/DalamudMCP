@@ -3,6 +3,7 @@ using Dalamud.Bindings.ImGui;
 using DalamudMCP.Framework;
 using DalamudMCP.Plugin.Configuration;
 using DalamudMCP.Plugin.Readers;
+using DalamudMCP.Plugin.Ui.Localization;
 using DalamudMCP.Protocol;
 
 namespace DalamudMCP.Plugin.Ui;
@@ -16,6 +17,7 @@ public sealed class PluginConfigWindow
     private static readonly Vector4 DangerColor = new(0.92f, 0.43f, 0.43f, 1f);
     private static readonly Vector4 MutedColor = new(0.67f, 0.71f, 0.77f, 1f);
 
+    private readonly IUiLocalization localization;
     private readonly PluginUiConfigurationStore configurationStore;
     private readonly Hosting.PluginMcpServerController mcpServerController;
     private readonly PluginConfigWindowModel model;
@@ -324,10 +326,12 @@ public sealed class PluginConfigWindow
                     DrawInlineTag("非安全", DangerColor);
 
                 ImGui.TableSetColumnIndex(1);
-                if (!string.IsNullOrWhiteSpace(operation.CliCommandText))
-                    ImGui.TextUnformatted(operation.CliCommandText);
-                if (!string.IsNullOrWhiteSpace(operation.McpToolText))
-                    ImGui.TextUnformatted(operation.McpToolText);
+                string cliPrefix = localization["label.cli_prefix"];
+                if (!string.IsNullOrWhiteSpace(operation.CliCommand))
+                    ImGui.TextUnformatted(cliPrefix + operation.CliCommand);
+                string mcpPrefix = localization["label.mcp_prefix"];
+                if (!string.IsNullOrWhiteSpace(operation.McpToolName))
+                    ImGui.TextUnformatted(mcpPrefix + operation.McpToolName);
 
                 ImGui.TableSetColumnIndex(2);
                 if (!string.IsNullOrWhiteSpace(operation.ReaderStatusText))
