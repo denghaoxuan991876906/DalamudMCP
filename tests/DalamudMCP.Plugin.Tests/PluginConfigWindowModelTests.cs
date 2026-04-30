@@ -1,6 +1,7 @@
 using DalamudMCP.Framework;
-using DalamudMCP.Plugin.Readers;
 using DalamudMCP.Plugin.Ui;
+using DalamudMCP.Plugin.Ui.Localization;
+using DalamudMCP.Plugin.Readers;
 
 namespace DalamudMCP.Plugin.Tests;
 
@@ -9,6 +10,7 @@ public sealed class PluginConfigWindowModelTests
     [Fact]
     public void Create_builds_rows_and_reader_status_from_operations()
     {
+        var loc = new FakeUiLocalization();
         PluginRuntimeOptions options = new("DalamudMCP.12345");
         OperationDescriptor[] operations =
         [
@@ -41,6 +43,7 @@ public sealed class PluginConfigWindowModelTests
         ];
 
         PluginConfigWindowModel model = PluginConfigWindowModel.Create(
+            loc,
             options,
             protocolServerRunning: true,
             autoStartHttpServerOnLoad: true,
@@ -78,7 +81,9 @@ public sealed class PluginConfigWindowModelTests
     [Fact]
     public void Create_keeps_non_reader_operations_visible()
     {
+        var loc = new FakeUiLocalization();
         PluginConfigWindowModel model = PluginConfigWindowModel.Create(
+            loc,
             new PluginRuntimeOptions("DalamudMCP.99999"),
             protocolServerRunning: false,
             autoStartHttpServerOnLoad: false,
@@ -117,7 +122,9 @@ public sealed class PluginConfigWindowModelTests
     [Fact]
     public void ApplyStatus_does_not_allocate_after_warmup()
     {
+        var loc = new FakeUiLocalization();
         PluginConfigWindowModel model = PluginConfigWindowModel.Create(
+            loc,
             new PluginRuntimeOptions("DalamudMCP.12345"),
             protocolServerRunning: true,
             autoStartHttpServerOnLoad: false,
@@ -172,7 +179,9 @@ public sealed class PluginConfigWindowModelTests
     [Fact]
     public void Create_handles_reader_status_that_requires_main_thread()
     {
+        var loc = new FakeUiLocalization();
         PluginConfigWindowModel model = PluginConfigWindowModel.Create(
+            loc,
             new PluginRuntimeOptions("DalamudMCP.12345"),
             protocolServerRunning: true,
             autoStartHttpServerOnLoad: false,
@@ -202,13 +211,15 @@ public sealed class PluginConfigWindowModelTests
         PluginConfigOperationRow row = Assert.Single(model.Operations);
         Assert.False(row.IsReaderReady);
         Assert.Equal("main_thread_required", row.ReaderDetail);
-        Assert.Equal("Reader: not ready (main_thread_required)", row.ReaderStatusText);
+        Assert.Equal("Reader: Not Ready (main_thread_required)", row.ReaderStatusText);
     }
 
     [Fact]
     public void Create_marks_action_operations_as_disabled_by_default()
     {
+        var loc = new FakeUiLocalization();
         PluginConfigWindowModel model = PluginConfigWindowModel.Create(
+            loc,
             new PluginRuntimeOptions("DalamudMCP.12345"),
             protocolServerRunning: true,
             autoStartHttpServerOnLoad: false,
@@ -234,14 +245,16 @@ public sealed class PluginConfigWindowModelTests
             []);
 
         PluginConfigOperationRow row = Assert.Single(model.Operations);
-        Assert.Equal("Action operations: disabled", model.ActionOperationsStatusText);
+        Assert.Equal("Action Operations: Disabled", model.ActionOperationsStatusText);
         Assert.Equal("Exposure: disabled until action operations are enabled", row.ExposureStatusText);
     }
 
     [Fact]
     public void Create_marks_unsafe_operations_as_disabled_by_default()
     {
+        var loc = new FakeUiLocalization();
         PluginConfigWindowModel model = PluginConfigWindowModel.Create(
+            loc,
             new PluginRuntimeOptions("DalamudMCP.12345"),
             protocolServerRunning: true,
             autoStartHttpServerOnLoad: false,
@@ -267,7 +280,7 @@ public sealed class PluginConfigWindowModelTests
             []);
 
         PluginConfigOperationRow row = Assert.Single(model.Operations);
-        Assert.Equal("Unsafe operations: disabled", model.UnsafeOperationsStatusText);
+        Assert.Equal("Unsafe Operations: Disabled", model.UnsafeOperationsStatusText);
         Assert.Equal("Exposure: disabled until unsafe operations are enabled", row.ExposureStatusText);
     }
 
@@ -280,5 +293,50 @@ public sealed class PluginConfigWindowModelTests
         public bool IsReady => throw new InvalidOperationException("Not on main thread!");
 
         public string Detail => throw new InvalidOperationException("Not on main thread!");
+    }
+
+    private sealed class FakeUiLocalization : IUiLocalization
+    {
+        private readonly Dictionary<string, string> strings = new(StringComparer.Ordinal);
+        private string currentLanguage = "zh";
+
+        public string CurrentLanguage => currentLanguage;
+
+        public event Action? LanguageChanged;
+
+        public FakeUiLocalization()
+        {
+            strings["label.pipe_name"] = "Active pipe (advanced): ";
+            strings["label.endpoint"] = "Endpoint: ";
+            strings["label.last_error"] = "Last Error: ";
+            strings["status.server_running"] = "Server Status: Running";
+            strings["status.server_stopped"] = "Server Status: Stopped";
+            strings["status.http_running"] = "Status: Running";
+            strings["status.http_stopped"] = "Status: Stopped";
+            strings["status.actions_enabled"] = "Action Operations: Enabled";
+            strings["status.actions_disabled"] = "Action Operations: Disabled";
+            strings["status.unsafe_enabled"] = "Unsafe Operations: Enabled";
+            strings["status.unsafe_disabled"] = "Unsafe Operations: Disabled";
+            strings["status.reader_format"] = "Reader Status: {0}/{1} Ready";
+            strings["status.exposure_unsafe_pending"] = "Exposure: disabled until unsafe operations are enabled";
+            strings["status.exposure_action_pending"] = "Exposure: disabled until action operations are enabled";
+            strings["status.reader_ready"] = "Reader: Ready";
+            strings["status.reader_not_ready"] = "Reader: Not Ready";
+            strings["status.reader_detail"] = "Reader: {0} ({1})";
+            strings["status.reader_ready_word"] = "Ready";
+            strings["status.reader_not_ready_word"] = "Not Ready";
+        }
+
+        public string this[string key] => GetString(key);
+
+        public string GetString(string key) =>
+            strings.TryGetValue(key, out var value) ? value : key;
+
+        public void SetLanguage(string language)
+        {
+            if (currentLanguage == language) return;
+            currentLanguage = language;
+            LanguageChanged?.Invoke();
+        }
     }
 }
