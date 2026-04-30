@@ -1,21 +1,16 @@
 using DalamudMCP.Framework;
+using DalamudMCP.Plugin.Ui.Localization;
 using DalamudMCP.Plugin.Readers;
 
 namespace DalamudMCP.Plugin.Ui;
 
 internal sealed class PluginConfigWindowModel
 {
-    private static readonly string ProtocolServerRunningText = "服务器状态: 运行中";
-    private static readonly string ProtocolServerStoppedText = "服务器状态: 已停止";
-    private static readonly string McpServerRunningText = "状态: 运行中";
-    private static readonly string McpServerStoppedText = "状态: 已停止";
-
+    private readonly IUiLocalization loc;
     private readonly IPluginReaderStatus?[] readerStatuses;
     private readonly PluginConfigOperationRow[] operations;
     private string? mcpServerCommand;
     private string? mcpServerError;
-    private string? actionOperationsStatusText;
-    private string? unsafeOperationsStatusText;
     private int readyReaderCount;
     private int readerCount;
     private int actionOperationCount;
@@ -24,15 +19,16 @@ internal sealed class PluginConfigWindowModel
     private int blockedOperationCount;
 
     private PluginConfigWindowModel(
+        IUiLocalization loc,
         string pipeName,
-        string pipeNameText,
         string cliCommand,
         string mcpCommand,
         PluginConfigOperationRow[] operations,
         IPluginReaderStatus?[] readerStatuses)
     {
+        this.loc = loc;
         PipeName = pipeName;
-        PipeNameText = pipeNameText;
+        PipeNameText = loc["label.pipe_name"] + pipeName;
         CliCommand = cliCommand;
         McpCommand = mcpCommand;
         this.operations = operations;
@@ -46,31 +42,31 @@ internal sealed class PluginConfigWindowModel
 
     public bool ProtocolServerRunning { get; private set; }
 
-    public string ProtocolServerStatusText { get; private set; } = ProtocolServerStoppedText;
+    public string ProtocolServerStatusText => loc[ProtocolServerRunning ? "status.server_running" : "status.server_stopped"];
 
     public bool AutoStartHttpServerOnLoad { get; private set; }
 
     public bool ActionOperationsEnabled { get; private set; }
 
-    public string ActionOperationsStatusText => actionOperationsStatusText ?? "动作操作: 已禁用";
+    public string ActionOperationsStatusText => loc[ActionOperationsEnabled ? "status.actions_enabled" : "status.actions_disabled"];
 
     public bool UnsafeOperationsEnabled { get; private set; }
 
-    public string UnsafeOperationsStatusText => unsafeOperationsStatusText ?? "非安全操作: 已禁用";
+    public string UnsafeOperationsStatusText => loc[UnsafeOperationsEnabled ? "status.unsafe_enabled" : "status.unsafe_disabled"];
 
     public bool McpServerRunning { get; private set; }
 
     public string McpServerEndpoint { get; private set; } = string.Empty;
 
-    public string McpServerEndpointText { get; private set; } = string.Empty;
+    public string McpServerEndpointText => loc["label.endpoint"] + McpServerEndpoint;
 
     public string? McpServerCommand => mcpServerCommand;
 
     public string? McpServerError => mcpServerError;
 
-    public string? McpServerErrorText { get; private set; }
+    public string? McpServerErrorText => string.IsNullOrWhiteSpace(mcpServerError) ? null : loc["label.last_error"] + mcpServerError;
 
-    public string McpServerStatusText { get; private set; } = McpServerStoppedText;
+    public string McpServerStatusText => loc[McpServerRunning ? "status.http_running" : "status.http_stopped"];
 
     public string CliCommand { get; }
 
@@ -92,9 +88,17 @@ internal sealed class PluginConfigWindowModel
 
     public int BlockedOperationCount => blockedOperationCount;
 
-    public string? ReaderStatusText { get; private set; }
+    public string? ReaderStatusText
+    {
+        get
+        {
+            if (readerCount <= 0) return null;
+            return string.Format(loc["status.reader_format"], readyReaderCount, readerCount);
+        }
+    }
 
     public static PluginConfigWindowModel Create(
+        IUiLocalization loc,
         PluginRuntimeOptions options,
         bool protocolServerRunning,
         bool autoStartHttpServerOnLoad,
@@ -104,6 +108,7 @@ internal sealed class PluginConfigWindowModel
         IReadOnlyList<OperationDescriptor> operations,
         IReadOnlyList<IPluginReaderStatus> readerStatuses)
     {
+        ArgumentNullException.ThrowIfNull(loc);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(mcpServerStatus);
         ArgumentNullException.ThrowIfNull(operations);
@@ -111,8 +116,8 @@ internal sealed class PluginConfigWindowModel
 
         PluginConfigOperationRow[] rows = CreateRows(operations, readerStatuses, out IPluginReaderStatus?[] rowsByReader);
         PluginConfigWindowModel model = new(
+            loc,
             options.PipeName,
-            "当前管道 (高级): " + options.PipeName,
             @"dotnet run --project .\src\DalamudMCP.Cli\DalamudMCP.Cli.csproj -- player context",
             @"dotnet run --project .\src\DalamudMCP.Cli\DalamudMCP.Cli.csproj -- serve mcp",
             rows,
@@ -159,22 +164,10 @@ internal sealed class PluginConfigWindowModel
         string? mcpServerError)
     {
         ProtocolServerRunning = protocolServerRunning;
-        ProtocolServerStatusText = protocolServerRunning
-            ? ProtocolServerRunningText
-            : ProtocolServerStoppedText;
         AutoStartHttpServerOnLoad = autoStartHttpServerOnLoad;
         ActionOperationsEnabled = actionOperationsEnabled;
-        actionOperationsStatusText = actionOperationsEnabled
-            ? "动作操作: 已启用"
-            : "动作操作: 已禁用";
         UnsafeOperationsEnabled = unsafeOperationsEnabled;
-        unsafeOperationsStatusText = unsafeOperationsEnabled
-            ? "非安全操作: 已启用"
-            : "非安全操作: 已禁用";
         McpServerRunning = mcpServerRunning;
-        McpServerStatusText = mcpServerRunning
-            ? McpServerRunningText
-            : McpServerStoppedText;
 
         UpdateEndpointText(mcpServerEndpoint);
         UpdateCommand(mcpServerCommand);
@@ -223,9 +216,7 @@ internal sealed class PluginConfigWindowModel
     {
         if (string.Equals(McpServerEndpoint, endpoint, StringComparison.Ordinal))
             return;
-
         McpServerEndpoint = endpoint;
-        McpServerEndpointText = "端点: " + endpoint;
     }
 
     private void UpdateCommand(string? command)
@@ -240,11 +231,7 @@ internal sealed class PluginConfigWindowModel
     {
         if (string.Equals(mcpServerError, error, StringComparison.Ordinal))
             return;
-
         mcpServerError = error;
-        McpServerErrorText = string.IsNullOrWhiteSpace(error)
-            ? null
-            : "最近错误: " + error;
     }
 
     private void RefreshReaderStatuses()
@@ -271,9 +258,6 @@ internal sealed class PluginConfigWindowModel
 
         readyReaderCount = newReadyReaderCount;
         readerCount = newReaderCount;
-        ReaderStatusText = newReaderCount > 0
-            ? $"读取器状态: {newReadyReaderCount}/{newReaderCount} 就绪"
-            : null;
     }
 
     private void RefreshExposureStatuses()
