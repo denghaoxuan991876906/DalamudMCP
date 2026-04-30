@@ -15,7 +15,7 @@
 - [ ] **Phase 7: 打包验证** - 发布 zip 中 manifest 准确，`DalamudApiLevel` 为 15
 - [ ] **Phase 8: 改中文界面** - 将插件 UI 文本改为中文显示
 - [x] **Phase 9: 可切换界面语言** - 支持在中文和英文之间切换界面显示语言
-- [ ] **Phase 10: 添加日志读取能力** - 通过 MCP 暴露游戏日志（聊天/战斗/系统）给 AI 客户端
+- [x] **Phase 10: 添加日志读取能力** - 通过 MCP 暴露游戏日志（聊天/战斗/系统）给 AI 客户端 (2026-05-01)
 
 ## Phase Details
 
@@ -136,9 +136,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 10-01-PLAN.md — ChatLogEntry 数据模型 + ChatLogBufferService（事件订阅 + 线程安全缓冲区）
-- [ ] 10-02-PLAN.md — ChatLogReadOperation + DI 链注入（IChatGui + ChatLogBufferService 注册到容器）
-- [ ] 10-03-PLAN.md — 单元测试（ChatLogBufferService 过滤测试 + ChatLogReadOperation 属性/执行测试）
+- [x] 10-01-PLAN.md — ChatLogEntry 数据模型 + ChatLogBufferService（事件订阅 + 线程安全缓冲区）
+- [x] 10-02-PLAN.md — ChatLogReadOperation + DI 链注入（IChatGui + ChatLogBufferService 注册到容器）
+- [x] 10-03-PLAN.md — 单元测试（ChatLogBufferService 过滤测试 + ChatLogReadOperation 属性/执行测试）
 
 ## Progress
 
