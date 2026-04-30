@@ -2,7 +2,7 @@
  Phase 1: Build Environment Prerequisites - Verification Report
  Requirement: ENV-01 - DALAMUD_HOME points to API 15 runtime
 ================================================================
-Report Time: 2026-04-30 22:14
+Report Time: 2026-04-30 22:14 (updated after .NET SDK install)
 ================================================================
 
 ----------------------------------------------------------------
@@ -21,25 +21,22 @@ Report Time: 2026-04-30 22:14
 ----------------------------------------------------------------
 3. .NET SDK Version
 ----------------------------------------------------------------
-   Installed: 10.0.101 (C:\Program Files\dotnet\sdk)
+   Installed: 10.0.203 [C:\Program Files\dotnet\sdk]
    Required by global.json: 10.0.201 (rollForward: latestFeature)
-   Compatibility: FAIL
-   Fix: Install .NET SDK 10.0.201 with:
-        winget install Microsoft.DotNet.SDK.10
-        OR update global.json sdk.version to 10.0.101
+   Resolution: latestFeature selects 10.0.203 in 10.0.2xx band
+   Compatibility: PASS
 
 ----------------------------------------------------------------
 4. Conclusion
 ----------------------------------------------------------------
-   ENV-01: PARTIAL PASS (2/3 checks pass)
+   ENV-01: PASS (3/3 checks pass)
 
-   1. DALAMUD_HOME: PASS - API 15 Dalamud.dll confirmed at default path
-   2. NuGet packages: PASS - 15.0.0 available for both SDK and Packager
-   3. .NET SDK: FAIL - installed version (10.0.101) does not match
-      global.json requirement (10.0.201)
+   All environment prerequisites confirmed:
+   1. DALAMUD_HOME: PASS - API 15 Dalamud.dll v15.0.0.0 present
+   2. NuGet packages: PASS - 15.0.0 available
+   3. .NET SDK: PASS - 10.0.203 satisfies global.json constraint
 
-   BLOCKED: Phase 2 (SDK upgrade) should not proceed until .NET SDK
-   mismatch is resolved.
+   Ready for Phase 2: SDK version upgrade.
 
 ================================================================
  Report End
