@@ -45,22 +45,22 @@ None — this is a compatibility migration with no deferred features.
 
 | Requirement | Phase |
 |-------------|-------|
-| CFG-01 | Pending |
-| CFG-02 | Pending |
-| CFG-03 | Pending |
-| ENV-01 | Pending |
-| ENV-02 | Pending |
-| VAL-01 | Pending |
-| VAL-02 | Pending |
-| VAL-03 | Pending |
-| VAL-04 | Pending |
-| VAL-05 | Pending |
+| CFG-01 | Phase 2 |
+| CFG-02 | Phase 3 |
+| CFG-03 | Phase 3 |
+| ENV-01 | Phase 1 |
+| ENV-02 | Phase 4 |
+| VAL-01 | Phase 5 |
+| VAL-02 | Phase 5 |
+| VAL-03 | Phase 6 |
+| VAL-04 | Phase 6 |
+| VAL-05 | Phase 7 |
 
 **Coverage:**
 - v1 requirements: 10 total
-- Mapped to phases: 0
-- Unmapped: 10 ⚠️
+- Mapped to phases: 10
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-30*
-*Last updated: 2026-04-30 after initial definition*
+*Last updated: 2026-04-30 after traceability mapping*
