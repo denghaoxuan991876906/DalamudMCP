@@ -25,7 +25,10 @@
   2. 目标目录中可验证存在 `Dalamud.dll` 且版本对应 API 15
   3. `Dalamud.NET.Sdk/15.0.0` 和 `DalamudPackager/15.0.0` 已通过 NuGet 源确认可用
   4. SDK 版本不确定性已解决（若 `15.0.0` 不可用，已确认实际可用版本并记录）
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 01-01-PLAN.md — 运行环境前提验证（DALAMUD_HOME、Dalamud.dll 版本、NuGet 包、.NET SDK），编译结构化验证报告
 
 ### Phase 2: SDK 版本升级
 **Goal**: `DalamudMCP.Plugin` 项目已引用 API 15 SDK
@@ -98,7 +101,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. 构建环境前提确认 | 0/0 | Not started | - |
+| 1. 构建环境前提确认 | 0/1 | Not started | - |
 | 2. SDK 版本升级 | 0/0 | Not started | - |
 | 3. Manifest 与锁文件更新 | 0/0 | Not started | - |
 | 4. 编译验证 | 0/0 | Not started | - |
