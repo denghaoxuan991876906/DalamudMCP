@@ -1,5 +1,8 @@
 namespace DalamudMCP.Plugin.Ui.Localization;
 
+/// <summary>
+///     Service contract for UI string localization with runtime language switching.
+/// </summary>
 public interface IUiLocalization
 {
     public string this[string key] { get; }
@@ -8,3 +11,4 @@ public interface IUiLocalization
     public void SetLanguage(string language);
     public event Action? LanguageChanged;
 }
+

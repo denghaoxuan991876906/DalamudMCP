@@ -45,5 +45,8 @@ internal sealed class JsonLocalization : IUiLocalization, IDisposable
             ?? new Dictionary<string, string>();
     }
 
-    public void Dispose() { }
+    public void Dispose()
+    {
+    }
 }
+
