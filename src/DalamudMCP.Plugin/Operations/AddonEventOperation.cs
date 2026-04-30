@@ -460,8 +460,7 @@ public sealed partial class AddonEventOperation : IOperation<AddonEventOperation
                 InputData = new AtkEventData.AtkInputData
                 {
                     InputId = eventParam,
-                    State = AtkEventData.AtkInputData.InputState.Repeat,
-                    Modifier = AtkEventData.AtkInputData.ModifierFlag.None
+                    State = InputState.Repeat,
                 }
             },
             AtkEventType.InputReceived => new AtkEventData
@@ -469,8 +468,7 @@ public sealed partial class AddonEventOperation : IOperation<AddonEventOperation
                 InputData = new AtkEventData.AtkInputData
                 {
                     InputId = eventParam,
-                    State = AtkEventData.AtkInputData.InputState.Down,
-                    Modifier = AtkEventData.AtkInputData.ModifierFlag.None
+                    State = InputState.Down,
                 }
             },
             _ => new AtkEventData
@@ -489,7 +487,6 @@ public sealed partial class AddonEventOperation : IOperation<AddonEventOperation
             PosY = GetNodeCenterCoordinate(sourceNode->ScreenY, sourceNode->Height),
             WheelDirection = 0,
             ButtonId = 1,
-            Modifier = AtkEventData.AtkMouseData.ModifierFlag.None
         };
     }
 

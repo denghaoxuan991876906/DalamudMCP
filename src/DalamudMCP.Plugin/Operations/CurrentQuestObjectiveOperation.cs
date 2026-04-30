@@ -139,16 +139,17 @@ public sealed partial class CurrentQuestObjectiveOperation
         TrackedQuestContext? trackedQuest = ResolveTrackedQuest(questManager, clientState, dataManager);
         if (trackedQuest is null)
         {
+            ushort territoryType = (ushort)clientState.TerritoryType;
             return new CurrentQuestObjectiveSnapshot(
                 DateTimeOffset.UtcNow,
-                clientState.TerritoryType,
+                territoryType,
                 null,
                 null,
                 null,
                 null,
                 [],
                 [],
-                $"No tracked quest objective is currently available in Territory#{clientState.TerritoryType.ToString(CultureInfo.InvariantCulture)}.");
+                $"No tracked quest objective is currently available in Territory#{territoryType.ToString(CultureInfo.InvariantCulture)}.");
         }
 
         CurrentQuestObjectiveVisibleMarker[] visibleMarkers = ResolveVisibleMarkers(map, trackedQuest.QuestId);
@@ -157,11 +158,12 @@ public sealed partial class CurrentQuestObjectiveOperation
         {
             QuestName = ResolveQuestDisplayName(trackedQuest.QuestName, visibleMarkers, linkMarkers)
         };
-        string summaryText = BuildSummary(effectiveTrackedQuest, clientState.TerritoryType, visibleMarkers.Length, linkMarkers.Length);
+        ushort territoryType2 = (ushort)clientState.TerritoryType;
+        string summaryText = BuildSummary(effectiveTrackedQuest, territoryType2, visibleMarkers.Length, linkMarkers.Length);
 
         return new CurrentQuestObjectiveSnapshot(
             DateTimeOffset.UtcNow,
-            clientState.TerritoryType,
+            territoryType2,
             effectiveTrackedQuest.QuestId,
             effectiveTrackedQuest.QuestName,
             effectiveTrackedQuest.QuestKind,
