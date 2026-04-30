@@ -276,22 +276,16 @@ dotnet --version
 | A1 | .NET SDK `10.0.101` 与 `global.json` 中 `10.0.201` + `rollForward: latestFeature` 兼容 | Standard Stack | 如果 dotnet CLI 拒绝使用 `10.0.101`，需要安装更新的 SDK 版本。风险：LOW — 可以通过 `dotnet --version` 实际验证 |
 | A2 | NuGet API 的 flatcontainer 端点是验证包版本可用性的权威来源 | Standard Stack | 如果 NuGet API 的版本列表与 `dotnet restore` 实际解析结果不一致（如包被取消发布），Phase 2 的 restore 会失败。风险：LOW — 已验证版本存在于列表中 |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **是否需要在 Phase 1 创建持久化的环境验证脚本？**
-   - What we know: 目前的 `Use-DalamudHome.ps1` 和 `Resolve-DalamudHome` 函数已经提供了足够的功能。
-   - What's unclear: 是否需要为了 Phase 1 验证目的创建一个更完整的验证脚本（一次性运行所有检查并输出格式化的 Pass/Fail 报告）。
-   - Recommendation: 不需要创建新脚本。验证步骤可以用一组独立的 PowerShell 命令完成，结果记录在计划执行工件中。如果后续阶段需要重复验证，可以在 Phase 2 或 Phase 4 中创建验证脚本。
+   - **Status: RESOLVED** — 不需要创建新脚本。验证步骤可以用一组独立的 PowerShell 命令完成，结果记录在计划执行工件中。如果后续阶段需要重复验证，可以在 Phase 2 或 Phase 4 中创建验证脚本。
 
 2. **Phase 1 的验证结果如何传递给 Phase 2 的 planner？**
-   - What we know: 验证结果以文档形式记录在 Phase 1 的工件中。
-   - What's unclear: 是否需要以机器可读的格式（如 JSON）保存验证结果，以便 Phase 2 的规划器自动读取。
-   - Recommendation: 暂不需要机器可读格式。Phase 2 的 planner 知道 Phase 1 的前提已验证通过。如果 Phase 1 失败，Phase 2 不应启动。
+   - **Status: RESOLVED** — 暂不需要机器可读格式。Phase 2 的 planner 知道 Phase 1 的前提已验证通过。如果 Phase 1 失败，Phase 2 不应启动。
 
 3. **如何处理 `DALAMUD_HOME` 验证失败的情况？**
-   - What we know: 失败可能的原因包括（a）路径不存在，（b）路径存在但 API 版本不对。
-   - What's unclear: 本阶段的计划是否应该包含「修复环境」的步骤，还是仅报告失败并阻断后续阶段。
-   - Recommendation: Phase 1 计划应该包含「验证」和「在失败时提供修复指引」两个部分。修复指引应该是文档化的建议（如"请安装 FFXIV Patch 7.5 对应的 XIVLauncher 版本"），而不是自动修复脚本。
+   - **Status: RESOLVED** — Phase 1 计划包含「验证」和「在失败时提供修复指引」两个部分。修复指引是文档化的建议（如"请安装 FFXIV Patch 7.5 对应的 XIVLauncher 版本"），而非自动修复脚本。
 
 ## Sources
 
