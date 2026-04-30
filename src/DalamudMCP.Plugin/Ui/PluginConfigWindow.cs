@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using DalamudMCP.Framework;
@@ -22,6 +23,7 @@ public sealed class PluginConfigWindow
     private readonly Hosting.PluginMcpServerController mcpServerController;
     private readonly PluginConfigWindowModel model;
     private readonly NamedPipeProtocolServer protocolServer;
+    private bool languageSwitchPending;
     private bool isOpen;
     private bool showBlockedOnly;
     private bool showReaderBackedOnly;
@@ -30,6 +32,7 @@ public sealed class PluginConfigWindow
     private long nextRefreshAt;
 
     public PluginConfigWindow(
+        IUiLocalization localization,
         PluginRuntimeOptions options,
         NamedPipeProtocolServer protocolServer,
         PluginUiConfigurationStore configurationStore,
@@ -37,6 +40,7 @@ public sealed class PluginConfigWindow
         IReadOnlyList<OperationDescriptor> operations,
         IReadOnlyList<IPluginReaderStatus> readerStatuses)
     {
+        this.localization = localization ?? throw new ArgumentNullException(nameof(localization));
         ArgumentNullException.ThrowIfNull(options);
         this.protocolServer = protocolServer ?? throw new ArgumentNullException(nameof(protocolServer));
         this.configurationStore = configurationStore ?? throw new ArgumentNullException(nameof(configurationStore));
@@ -44,7 +48,10 @@ public sealed class PluginConfigWindow
         ArgumentNullException.ThrowIfNull(operations);
         ArgumentNullException.ThrowIfNull(readerStatuses);
 
+        this.localization.LanguageChanged += OnLanguageChanged;
+
         model = PluginConfigWindowModel.Create(
+            this.localization,
             options,
             protocolServer.IsRunning,
             configurationStore.Current.AutoStartHttpServerOnLoad,
@@ -66,10 +73,13 @@ public sealed class PluginConfigWindow
         if (!isOpen)
             return;
 
+        if (languageSwitchPending)
+            languageSwitchPending = false;
+
         RefreshModel(force: false);
 
         ImGui.SetNextWindowSize(new Vector2(980f, 760f), ImGuiCond.FirstUseEver);
-        if (!ImGui.Begin("DalamudMCP 设置", ref isOpen, ImGuiWindowFlags.NoCollapse))
+        if (!ImGui.Begin(localization["window.title"], ref isOpen, ImGuiWindowFlags.NoCollapse))
         {
             ImGui.End();
             return;
@@ -99,24 +109,48 @@ public sealed class PluginConfigWindow
         nextRefreshAt = now + RefreshIntervalMilliseconds;
     }
 
+    private void OnLanguageChanged()
+    {
+        languageSwitchPending = true;
+        RefreshModel(force: true);
+    }
+
     private void DrawHeader()
     {
         ImGui.TextColored(AccentColor, "DalamudMCP");
         ImGui.SameLine();
-        ImGui.TextDisabled("FFXIV 观察、动作与 MCP 暴露的实时桥接。");
+        ImGui.TextDisabled(localization["header.subtitle"]);
 
         DrawInlineBadge(
-            model.ProtocolServerRunning ? "管道在线" : "管道离线",
+            model.ProtocolServerRunning ? localization["badge.pipe_online"] : localization["badge.pipe_offline"],
             model.ProtocolServerRunning ? SuccessColor : DangerColor);
         DrawInlineBadge(
-            model.McpServerRunning ? "HTTP 在线" : "HTTP 已停",
+            model.McpServerRunning ? localization["badge.http_online"] : localization["badge.http_stopped"],
             model.McpServerRunning ? SuccessColor : WarningColor);
         DrawInlineBadge(
-            $"{model.ExposedOperationCount}/{model.OperationCount} 已暴露",
+            string.Format(CultureInfo.InvariantCulture, localization["badge.exposed"], model.ExposedOperationCount, model.OperationCount),
             AccentColor);
 
-        ImGui.TextColored(MutedColor, "顶行为运行时健康状态，下半部分用于操作浏览和可复制命令。");
+        ImGui.TextColored(MutedColor, localization["header.hint"]);
+        DrawLanguageSelector();
         ImGui.Separator();
+    }
+
+    private void DrawLanguageSelector()
+    {
+        string current = localization.CurrentLanguage;
+        string[] languages = ["zh", "en"];
+        string[] labels = ["中文", "English"];
+        int selectedIndex = Array.IndexOf(languages, current);
+        if (selectedIndex < 0) selectedIndex = 0;
+
+        ImGui.SetNextItemWidth(120f);
+        if (ImGui.Combo("##lang", ref selectedIndex, labels, labels.Length))
+        {
+            configurationStore.Update(config =>
+                config.SelectedLanguage = languages[selectedIndex]);
+            localization.SetLanguage(languages[selectedIndex]);
+        }
     }
 
     private void DrawOverview()
@@ -139,36 +173,36 @@ public sealed class PluginConfigWindow
             return;
         }
 
-        DrawPanelTitle("运行时", "连接健康、发现与暴露状态。");
-        DrawKeyValue("发现", "CLI 自动发现已启用");
-        DrawStatusLine("命名管道", model.ProtocolServerRunning, model.ProtocolServerStatusText);
+        DrawPanelTitle(localization["runtime.panel_title"], localization["runtime.panel_subtitle"]);
+        DrawKeyValue(localization["runtime.discovery"], localization["runtime.discovery_value"]);
+        DrawStatusLine(localization["runtime.pipe"], model.ProtocolServerRunning, model.ProtocolServerStatusText);
         if (!string.IsNullOrWhiteSpace(model.ReaderStatusText))
-            DrawStatusLine("读取器", model.ReadyReaderCount == model.ReaderCount, model.ReaderStatusText!);
+            DrawStatusLine(localization["runtime.reader"], model.ReadyReaderCount == model.ReaderCount, model.ReaderStatusText!);
 
-        DrawStatusLine("动作工具", model.ActionOperationsEnabled, model.ActionOperationsStatusText);
-        DrawStatusLine("非安全工具", model.UnsafeOperationsEnabled, model.UnsafeOperationsStatusText);
-        DrawKeyValue("操作", $"{model.OperationCount} 总计  |  {model.ExposedOperationCount} 已暴露  |  {model.BlockedOperationCount} 已限制");
+        DrawStatusLine(localization["runtime.action_tools"], model.ActionOperationsEnabled, model.ActionOperationsStatusText);
+        DrawStatusLine(localization["runtime.unsafe_tools"], model.UnsafeOperationsEnabled, model.UnsafeOperationsStatusText);
+        DrawKeyValue(localization["runtime.operations"], string.Format(CultureInfo.InvariantCulture, localization["runtime.operations_value"], model.OperationCount, model.ExposedOperationCount, model.BlockedOperationCount));
 
         ImGui.Spacing();
         bool actionOperationsEnabled = model.ActionOperationsEnabled;
-        if (ImGui.Checkbox("启用 CLI/MCP 动作操作", ref actionOperationsEnabled))
+        if (ImGui.Checkbox(localization["runtime.enable_actions"], ref actionOperationsEnabled))
         {
             configurationStore.Update(configuration =>
                 configuration.EnableActionOperations = actionOperationsEnabled);
             RefreshModel(force: true);
         }
 
-        ImGui.TextWrapped("观察工具保持在线。动作默认关闭，需在此处显式暴露后才能使用。");
+        ImGui.TextWrapped(localization["runtime.enable_actions_hint"]);
 
         bool unsafeOperationsEnabled = model.UnsafeOperationsEnabled;
-        if (ImGui.Checkbox("启用非安全集成工具（仅开发者）", ref unsafeOperationsEnabled))
+        if (ImGui.Checkbox(localization["runtime.enable_unsafe"], ref unsafeOperationsEnabled))
         {
             configurationStore.Update(configuration =>
                 configuration.EnableUnsafeOperations = unsafeOperationsEnabled);
             RefreshModel(force: true);
         }
 
-        ImGui.TextWrapped("非安全工具可调用任意插件 IPC 功能。除非正在调试其他插件，否则请保持关闭。");
+        ImGui.TextWrapped(localization["runtime.enable_unsafe_hint"]);
         ImGui.EndChild();
     }
 
@@ -181,21 +215,21 @@ public sealed class PluginConfigWindow
             return;
         }
 
-        DrawPanelTitle("命令台", "复制最常用的两个入口点命令。");
+        DrawPanelTitle(localization["quickstart.panel_title"], localization["quickstart.panel_subtitle"]);
         ImGui.Columns(2, "QuickStartColumns", false);
         DrawCommandCard(
-            "CLI 快速检查",
-            "从活动插件实例读取实时玩家快照。",
+            localization["quickstart.cli_card_title"],
+            localization["quickstart.cli_card_desc"],
             ToCommandSummary(model.CliCommand),
             model.CliCommand,
-            "复制玩家上下文命令");
+            localization["quickstart.cli_card_button"]);
         ImGui.NextColumn();
         DrawCommandCard(
-            "MCP 服务",
-            "通过插件发现的管道启动本地 MCP 桥接。",
+            localization["quickstart.mcp_card_title"],
+            localization["quickstart.mcp_card_desc"],
             ToCommandSummary(model.McpCommand),
             model.McpCommand,
-            "复制 MCP 服务命令");
+            localization["quickstart.mcp_card_button"]);
         ImGui.Columns(1);
         ImGui.EndChild();
     }
@@ -203,7 +237,7 @@ public sealed class PluginConfigWindow
     private void DrawAdvancedDetails()
     {
         ImGui.Spacing();
-        if (!ImGui.CollapsingHeader("高级详情", ref showAdvancedDetails))
+        if (!ImGui.CollapsingHeader(localization["advanced.header"], ref showAdvancedDetails))
             return;
 
         if (!ImGui.BeginChild("AdvancedPanel", new Vector2(0f, 132f), true))
@@ -212,11 +246,11 @@ public sealed class PluginConfigWindow
             return;
         }
 
-        DrawKeyValue("管道", model.PipeName);
-        DrawKeyValue("CLI 命令", model.CliCommand);
-        DrawKeyValue("MCP 服务", model.McpCommand);
+        DrawKeyValue(localization["advanced.pipe"], model.PipeName);
+        DrawKeyValue(localization["advanced.cli_command"], model.CliCommand);
+        DrawKeyValue(localization["advanced.mcp_service"], model.McpCommand);
         if (!string.IsNullOrWhiteSpace(model.McpServerCommand))
-            DrawKeyValue("HTTP 命令", model.McpServerCommand);
+            DrawKeyValue(localization["advanced.http_command"], model.McpServerCommand);
         if (!string.IsNullOrWhiteSpace(model.McpServerErrorText))
             DrawWrappedStatus(DangerColor, model.McpServerErrorText);
 
@@ -231,12 +265,12 @@ public sealed class PluginConfigWindow
             return;
         }
 
-        DrawPanelTitle("HTTP 服务器", "稳定的 MCP 端点，供无需关心管道名的客户端使用。");
-        DrawKeyValue("端点", model.McpServerEndpoint);
-        DrawStatusLine("HTTP 状态", model.McpServerRunning, model.McpServerStatusText);
+        DrawPanelTitle(localization["server.panel_title"], localization["server.panel_subtitle"]);
+        DrawKeyValue(localization["server.endpoint"], model.McpServerEndpoint);
+        DrawStatusLine(localization["server.http_status"], model.McpServerRunning, model.McpServerStatusText);
 
         bool autoStartHttpServerOnLoad = model.AutoStartHttpServerOnLoad;
-        if (ImGui.Checkbox("插件加载时自动启动 MCP HTTP 服务器", ref autoStartHttpServerOnLoad))
+        if (ImGui.Checkbox(localization["server.auto_start"], ref autoStartHttpServerOnLoad))
         {
             configurationStore.Update(configuration =>
                 configuration.AutoStartHttpServerOnLoad = autoStartHttpServerOnLoad);
@@ -246,25 +280,25 @@ public sealed class PluginConfigWindow
         ImGui.Spacing();
         if (!model.McpServerRunning)
         {
-            if (ImGui.Button("启动 MCP HTTP 服务器", new Vector2(220f, 0f)))
+            if (ImGui.Button(localization["server.start_button"], new Vector2(220f, 0f)))
             {
                 mcpServerController.Start();
                 nextRefreshAt = 0;
             }
         }
-        else if (ImGui.Button("停止 MCP HTTP 服务器", new Vector2(220f, 0f)))
+        else if (ImGui.Button(localization["server.stop_button"], new Vector2(220f, 0f)))
         {
             mcpServerController.Stop();
             nextRefreshAt = 0;
         }
 
         ImGui.SameLine();
-        if (ImGui.Button("复制 MCP 端点", new Vector2(180f, 0f)))
+        if (ImGui.Button(localization["server.copy_endpoint"], new Vector2(180f, 0f)))
             ImGui.SetClipboardText(model.McpServerEndpoint);
 
         if (!string.IsNullOrWhiteSpace(model.McpServerCommand))
         {
-            if (ImGui.Button("复制 MCP 服务器命令", new Vector2(220f, 0f)))
+            if (ImGui.Button(localization["server.copy_command"], new Vector2(220f, 0f)))
                 ImGui.SetClipboardText(model.McpServerCommand);
         }
 
@@ -280,17 +314,17 @@ public sealed class PluginConfigWindow
             return;
         }
 
-        DrawPanelTitle("操作", "在将插件交给其他客户端前，筛选暴露的接口。");
+        DrawPanelTitle(localization["operations.panel_title"], localization["operations.panel_subtitle"]);
         DrawKeyValue(
-            "目录",
-            $"{model.OperationCount} 总计  |  {model.ActionOperationCount} 动作  |  {model.UnsafeOperationCount} 非安全  |  {model.BlockedOperationCount} 已限制");
+            localization["operations.catalog"],
+            string.Format(CultureInfo.InvariantCulture, localization["operations.catalog_value"], model.OperationCount, model.ActionOperationCount, model.UnsafeOperationCount, model.BlockedOperationCount));
 
         ImGui.SetNextItemWidth(280f);
-        ImGui.InputText("搜索", ref operationFilter, 128);
+        ImGui.InputText(localization["operations.search"], ref operationFilter, 128);
         ImGui.SameLine();
-        ImGui.Checkbox("仅显示已限制", ref showBlockedOnly);
+        ImGui.Checkbox(localization["operations.show_blocked"], ref showBlockedOnly);
         ImGui.SameLine();
-        ImGui.Checkbox("仅显示有读取器", ref showReaderBackedOnly);
+        ImGui.Checkbox(localization["operations.show_reader"], ref showReaderBackedOnly);
 
         IReadOnlyList<PluginConfigOperationRow> operations = model.Operations;
         const ImGuiTableFlags tableFlags =
@@ -303,10 +337,10 @@ public sealed class PluginConfigWindow
 
         if (ImGui.BeginTable("OperationsTable", 4, tableFlags, new Vector2(0f, 0f)))
         {
-            ImGui.TableSetupColumn("操作", ImGuiTableColumnFlags.WidthStretch, 0.27f);
-            ImGui.TableSetupColumn("访问", ImGuiTableColumnFlags.WidthStretch, 0.23f);
-            ImGui.TableSetupColumn("状态", ImGuiTableColumnFlags.WidthStretch, 0.20f);
-            ImGui.TableSetupColumn("摘要", ImGuiTableColumnFlags.WidthStretch, 0.30f);
+            ImGui.TableSetupColumn(localization["operations.table_header_operation"], ImGuiTableColumnFlags.WidthStretch, 0.27f);
+            ImGui.TableSetupColumn(localization["operations.table_header_access"], ImGuiTableColumnFlags.WidthStretch, 0.23f);
+            ImGui.TableSetupColumn(localization["operations.table_header_status"], ImGuiTableColumnFlags.WidthStretch, 0.20f);
+            ImGui.TableSetupColumn(localization["operations.table_header_summary"], ImGuiTableColumnFlags.WidthStretch, 0.30f);
             ImGui.TableHeadersRow();
 
             int visibleCount = 0;
@@ -321,9 +355,9 @@ public sealed class PluginConfigWindow
 
                 ImGui.TableSetColumnIndex(0);
                 ImGui.TextUnformatted(operation.OperationId);
-                DrawInlineTag(operation.IsActionOperation ? "动作" : "观察", operation.IsActionOperation ? WarningColor : SuccessColor);
+                DrawInlineTag(operation.IsActionOperation ? localization["operations.tag_action"] : localization["operations.tag_observe"], operation.IsActionOperation ? WarningColor : SuccessColor);
                 if (operation.IsUnsafeOperation)
-                    DrawInlineTag("非安全", DangerColor);
+                    DrawInlineTag(localization["operations.tag_unsafe"], DangerColor);
 
                 ImGui.TableSetColumnIndex(1);
                 string cliPrefix = localization["label.cli_prefix"];
@@ -341,18 +375,19 @@ public sealed class PluginConfigWindow
                 if (string.IsNullOrWhiteSpace(operation.ReaderStatusText) &&
                     string.IsNullOrWhiteSpace(operation.ExposureStatusText))
                 {
-                    ImGui.TextColored(SuccessColor, "可暴露");
+                    ImGui.TextColored(SuccessColor, localization["operations.tag_exposed"]);
                 }
 
                 ImGui.TableSetColumnIndex(3);
-                ImGui.TextWrapped(operation.Summary);
+                string opSummary = localization.GetString($"op.{operation.OperationId}.summary");
+                ImGui.TextWrapped(opSummary ?? operation.Summary);
             }
 
             if (visibleCount == 0)
             {
                 ImGui.TableNextRow();
                 ImGui.TableSetColumnIndex(0);
-                ImGui.TextColored(MutedColor, "无操作匹配当前筛选条件。");
+                ImGui.TextColored(MutedColor, localization["operations.empty"]);
             }
 
             ImGui.EndTable();

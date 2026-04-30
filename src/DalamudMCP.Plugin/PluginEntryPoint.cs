@@ -3,6 +3,7 @@ using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using DalamudMCP.Framework;
 using DalamudMCP.Plugin.Configuration;
+using DalamudMCP.Plugin.Ui.Localization;
 using DalamudMCP.Plugin.Readers;
 using DalamudMCP.Plugin.Ui;
 using DalamudMCP.Protocol;
@@ -75,7 +76,12 @@ public sealed class PluginEntryPoint : IDalamudPlugin
                 operations,
                 configurationStore.Current.EnableActionOperations,
                 configurationStore.Current.EnableUnsafeOperations));
+        var localization = compositionRoot.GetRequiredService<IUiLocalization>();
+        if (!string.IsNullOrWhiteSpace(configurationStore.Current.SelectedLanguage))
+            localization.SetLanguage(configurationStore.Current.SelectedLanguage);
+
         configWindow = new PluginConfigWindow(
+            localization,
             compositionRoot.Options,
             compositionRoot.ProtocolServer,
             configurationStore,

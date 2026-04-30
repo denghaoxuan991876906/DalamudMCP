@@ -1,3 +1,4 @@
+using System.Globalization;
 using DalamudMCP.Framework;
 using DalamudMCP.Plugin.Ui.Localization;
 using DalamudMCP.Plugin.Readers;
@@ -93,7 +94,7 @@ internal sealed class PluginConfigWindowModel
         get
         {
             if (readerCount <= 0) return null;
-            return string.Format(loc["status.reader_format"], readyReaderCount, readerCount);
+            return string.Format(CultureInfo.InvariantCulture, loc["status.reader_format"], readyReaderCount, readerCount);
         }
     }
 
@@ -335,7 +336,7 @@ internal sealed class PluginConfigOperationRow
             string readiness = IsReaderReady.Value
                 ? loc["status.reader_ready_word"]
                 : loc["status.reader_not_ready_word"];
-            return string.Format(loc["status.reader_detail"], readiness, ReaderDetail);
+            return string.Format(CultureInfo.InvariantCulture, loc["status.reader_detail"], readiness, ReaderDetail);
         }
     }
 
