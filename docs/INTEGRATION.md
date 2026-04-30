@@ -99,6 +99,7 @@ dotnet run --project src/DalamudMCP.Cli -- --pipe <管道名> player context
 | `get_available_quests` | 获取当前区域可见的未接任务 | `name-contains`(可选), `max-results`(可选) |
 | `get_current_quest_objective` | 获取当前追踪的任务目标 | 无 |
 | `capture_game_screenshot` | 截取游戏画面 | `capture-area`(可选: client/window) |
+| `get_chat_log` | 读取最近聊天/战斗/系统日志 | `channels`(可选: 频道名称数组), `since`(可选: ISO 8601 时间戳), `max-count`(可选: 最多返回条数, 上限 500) |
 
 ### 动作类工具（需在插件配置中启用）
 
@@ -202,6 +203,31 @@ dotnet run --project src/DalamudMCP.Cli -- --pipe <管道名> player context
         "isHq": false
       }
     ]
+  }
+}
+```
+
+#### get_chat_log
+
+```json
+{
+  "structuredContent": {
+    "capturedAt": "2026-05-01T12:00:00Z",
+    "entries": [
+      {
+        "id": "a1b2c3d4-...",
+        "timestamp": "2026-05-01T11:59:55Z",
+        "type": "Say",
+        "channelName": "Say",
+        "senderId": 0,
+        "senderName": "玩家名",
+        "message": "你好！",
+        "sourceKind": "None",
+        "targetKind": "None"
+      }
+    ],
+    "totalFilteredCount": 1,
+    "summaryText": "1 log entries returned."
   }
 }
 ```

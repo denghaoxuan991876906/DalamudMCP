@@ -43,6 +43,7 @@ Observation tools:
 - `quest.status`
 - `quest.available`
 - `quest.current-objective`
+- `chat.read`
 - `game.screenshot`
 
 Action tools:
@@ -99,6 +100,7 @@ Load that plugin in Dalamud, then open its configuration window.
 dotnet run --project .\src\DalamudMCP.Cli\DalamudMCP.Cli.csproj -- player context
 dotnet run --project .\src\DalamudMCP.Cli\DalamudMCP.Cli.csproj -- session status --json
 dotnet run --project .\src\DalamudMCP.Cli\DalamudMCP.Cli.csproj -- inventory summary
+dotnet run --project .\src\DalamudMCP.Cli\DalamudMCP.Cli.csproj -- chat read --channels Say,Party --max-count 10
 ```
 
 Normal CLI use auto-discovers the active plugin instance from `active-instance.json`.
