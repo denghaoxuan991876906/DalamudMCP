@@ -5,10 +5,10 @@ namespace DalamudMCP.Plugin.Ui;
 
 internal sealed class PluginConfigWindowModel
 {
-    private static readonly string ProtocolServerRunningText = "Server status: running";
-    private static readonly string ProtocolServerStoppedText = "Server status: stopped";
-    private static readonly string McpServerRunningText = "Status: running";
-    private static readonly string McpServerStoppedText = "Status: stopped";
+    private static readonly string ProtocolServerRunningText = "服务器状态: 运行中";
+    private static readonly string ProtocolServerStoppedText = "服务器状态: 已停止";
+    private static readonly string McpServerRunningText = "状态: 运行中";
+    private static readonly string McpServerStoppedText = "状态: 已停止";
 
     private readonly IPluginReaderStatus?[] readerStatuses;
     private readonly PluginConfigOperationRow[] operations;
@@ -52,11 +52,11 @@ internal sealed class PluginConfigWindowModel
 
     public bool ActionOperationsEnabled { get; private set; }
 
-    public string ActionOperationsStatusText => actionOperationsStatusText ?? "Action operations: disabled";
+    public string ActionOperationsStatusText => actionOperationsStatusText ?? "动作操作: 已禁用";
 
     public bool UnsafeOperationsEnabled { get; private set; }
 
-    public string UnsafeOperationsStatusText => unsafeOperationsStatusText ?? "Unsafe operations: disabled";
+    public string UnsafeOperationsStatusText => unsafeOperationsStatusText ?? "非安全操作: 已禁用";
 
     public bool McpServerRunning { get; private set; }
 
@@ -112,7 +112,7 @@ internal sealed class PluginConfigWindowModel
         PluginConfigOperationRow[] rows = CreateRows(operations, readerStatuses, out IPluginReaderStatus?[] rowsByReader);
         PluginConfigWindowModel model = new(
             options.PipeName,
-            "Active pipe (advanced): " + options.PipeName,
+            "当前管道 (高级): " + options.PipeName,
             @"dotnet run --project .\src\DalamudMCP.Cli\DalamudMCP.Cli.csproj -- player context",
             @"dotnet run --project .\src\DalamudMCP.Cli\DalamudMCP.Cli.csproj -- serve mcp",
             rows,
@@ -165,12 +165,12 @@ internal sealed class PluginConfigWindowModel
         AutoStartHttpServerOnLoad = autoStartHttpServerOnLoad;
         ActionOperationsEnabled = actionOperationsEnabled;
         actionOperationsStatusText = actionOperationsEnabled
-            ? "Action operations: enabled"
-            : "Action operations: disabled";
+            ? "动作操作: 已启用"
+            : "动作操作: 已禁用";
         UnsafeOperationsEnabled = unsafeOperationsEnabled;
         unsafeOperationsStatusText = unsafeOperationsEnabled
-            ? "Unsafe operations: enabled"
-            : "Unsafe operations: disabled";
+            ? "非安全操作: 已启用"
+            : "非安全操作: 已禁用";
         McpServerRunning = mcpServerRunning;
         McpServerStatusText = mcpServerRunning
             ? McpServerRunningText
@@ -225,7 +225,7 @@ internal sealed class PluginConfigWindowModel
             return;
 
         McpServerEndpoint = endpoint;
-        McpServerEndpointText = "Endpoint: " + endpoint;
+        McpServerEndpointText = "端点: " + endpoint;
     }
 
     private void UpdateCommand(string? command)
@@ -244,7 +244,7 @@ internal sealed class PluginConfigWindowModel
         mcpServerError = error;
         McpServerErrorText = string.IsNullOrWhiteSpace(error)
             ? null
-            : "Last error: " + error;
+            : "最近错误: " + error;
     }
 
     private void RefreshReaderStatuses()
@@ -272,7 +272,7 @@ internal sealed class PluginConfigWindowModel
         readyReaderCount = newReadyReaderCount;
         readerCount = newReaderCount;
         ReaderStatusText = newReaderCount > 0
-            ? $"Reader status: {newReadyReaderCount}/{newReaderCount} ready"
+            ? $"读取器状态: {newReadyReaderCount}/{newReaderCount} 就绪"
             : null;
     }
 
@@ -375,9 +375,9 @@ internal sealed class PluginConfigOperationRow
     {
         string? exposureStatusText =
             IsUnsafeOperation && !unsafeOperationsEnabled
-                ? "Exposure: disabled until unsafe operations are enabled"
+                ? "暴露: 已禁用，等待非安全操作启用"
                 : IsActionOperation && !actionOperationsEnabled
-                    ? "Exposure: disabled until action operations are enabled"
+                    ? "暴露: 已禁用，等待动作操作启用"
                     : null;
 
         if (string.Equals(ExposureStatusText, exposureStatusText, StringComparison.Ordinal))
@@ -395,11 +395,11 @@ internal sealed class PluginConfigOperationRow
         if (isReady is null)
             return null;
 
-        string readiness = isReady.Value ? "ready" : "not ready";
+        string readiness = isReady.Value ? "就绪" : "未就绪";
         if (string.IsNullOrWhiteSpace(detail))
-            return "Reader: " + readiness;
+            return "读取器: " + readiness;
 
-        return $"Reader: {readiness} ({detail})";
+        return $"读取器: {readiness} ({detail})";
     }
 
     private static void TryReadReaderStatus(

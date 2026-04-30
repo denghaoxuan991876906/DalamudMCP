@@ -67,7 +67,7 @@ public sealed class PluginConfigWindow
         RefreshModel(force: false);
 
         ImGui.SetNextWindowSize(new Vector2(980f, 760f), ImGuiCond.FirstUseEver);
-        if (!ImGui.Begin("DalamudMCP Settings", ref isOpen, ImGuiWindowFlags.NoCollapse))
+        if (!ImGui.Begin("DalamudMCP 设置", ref isOpen, ImGuiWindowFlags.NoCollapse))
         {
             ImGui.End();
             return;
@@ -101,19 +101,19 @@ public sealed class PluginConfigWindow
     {
         ImGui.TextColored(AccentColor, "DalamudMCP");
         ImGui.SameLine();
-        ImGui.TextDisabled("Live bridge for FFXIV observations, actions, and MCP exposure.");
+        ImGui.TextDisabled("FFXIV 观察、动作与 MCP 暴露的实时桥接。");
 
         DrawInlineBadge(
-            model.ProtocolServerRunning ? "PIPE LIVE" : "PIPE DOWN",
+            model.ProtocolServerRunning ? "管道在线" : "管道离线",
             model.ProtocolServerRunning ? SuccessColor : DangerColor);
         DrawInlineBadge(
-            model.McpServerRunning ? "HTTP LIVE" : "HTTP STOPPED",
+            model.McpServerRunning ? "HTTP 在线" : "HTTP 已停",
             model.McpServerRunning ? SuccessColor : WarningColor);
         DrawInlineBadge(
-            $"{model.ExposedOperationCount}/{model.OperationCount} EXPOSED",
+            $"{model.ExposedOperationCount}/{model.OperationCount} 已暴露",
             AccentColor);
 
-        ImGui.TextColored(MutedColor, "The top row is for runtime health. The bottom half is for operations browsing and copy-ready commands.");
+        ImGui.TextColored(MutedColor, "顶行为运行时健康状态，下半部分用于操作浏览和可复制命令。");
         ImGui.Separator();
     }
 
@@ -137,36 +137,36 @@ public sealed class PluginConfigWindow
             return;
         }
 
-        DrawPanelTitle("Runtime", "Connection health, discovery, and exposure posture.");
-        DrawKeyValue("Discovery", "CLI auto-discovery enabled");
-        DrawStatusLine("Named pipe", model.ProtocolServerRunning, model.ProtocolServerStatusText);
+        DrawPanelTitle("运行时", "连接健康、发现与暴露状态。");
+        DrawKeyValue("发现", "CLI 自动发现已启用");
+        DrawStatusLine("命名管道", model.ProtocolServerRunning, model.ProtocolServerStatusText);
         if (!string.IsNullOrWhiteSpace(model.ReaderStatusText))
-            DrawStatusLine("Readers", model.ReadyReaderCount == model.ReaderCount, model.ReaderStatusText!);
+            DrawStatusLine("读取器", model.ReadyReaderCount == model.ReaderCount, model.ReaderStatusText!);
 
-        DrawStatusLine("Action tools", model.ActionOperationsEnabled, model.ActionOperationsStatusText);
-        DrawStatusLine("Unsafe tools", model.UnsafeOperationsEnabled, model.UnsafeOperationsStatusText);
-        DrawKeyValue("Operations", $"{model.OperationCount} total  |  {model.ExposedOperationCount} exposed  |  {model.BlockedOperationCount} gated");
+        DrawStatusLine("动作工具", model.ActionOperationsEnabled, model.ActionOperationsStatusText);
+        DrawStatusLine("非安全工具", model.UnsafeOperationsEnabled, model.UnsafeOperationsStatusText);
+        DrawKeyValue("操作", $"{model.OperationCount} 总计  |  {model.ExposedOperationCount} 已暴露  |  {model.BlockedOperationCount} 已限制");
 
         ImGui.Spacing();
         bool actionOperationsEnabled = model.ActionOperationsEnabled;
-        if (ImGui.Checkbox("Enable action operations over CLI/MCP", ref actionOperationsEnabled))
+        if (ImGui.Checkbox("启用 CLI/MCP 动作操作", ref actionOperationsEnabled))
         {
             configurationStore.Update(configuration =>
                 configuration.EnableActionOperations = actionOperationsEnabled);
             RefreshModel(force: true);
         }
 
-        ImGui.TextWrapped("Observation tools stay live. Actions remain default-off until you explicitly expose them here.");
+        ImGui.TextWrapped("观察工具保持在线。动作默认关闭，需在此处显式暴露后才能使用。");
 
         bool unsafeOperationsEnabled = model.UnsafeOperationsEnabled;
-        if (ImGui.Checkbox("Enable unsafe integration tools (developer only)", ref unsafeOperationsEnabled))
+        if (ImGui.Checkbox("启用非安全集成工具（仅开发者）", ref unsafeOperationsEnabled))
         {
             configurationStore.Update(configuration =>
                 configuration.EnableUnsafeOperations = unsafeOperationsEnabled);
             RefreshModel(force: true);
         }
 
-        ImGui.TextWrapped("Unsafe tools can invoke arbitrary plugin IPC functions. Leave them off unless you are deliberately debugging another plugin.");
+        ImGui.TextWrapped("非安全工具可调用任意插件 IPC 功能。除非正在调试其他插件，否则请保持关闭。");
         ImGui.EndChild();
     }
 
@@ -179,21 +179,21 @@ public sealed class PluginConfigWindow
             return;
         }
 
-        DrawPanelTitle("Command Desk", "Copy the two entrypoints people need most often.");
+        DrawPanelTitle("命令台", "复制最常用的两个入口点命令。");
         ImGui.Columns(2, "QuickStartColumns", false);
         DrawCommandCard(
-            "CLI quick check",
-            "Reads the live player snapshot from the active plugin instance.",
+            "CLI 快速检查",
+            "从活动插件实例读取实时玩家快照。",
             ToCommandSummary(model.CliCommand),
             model.CliCommand,
-            "Copy Player Context Command");
+            "复制玩家上下文命令");
         ImGui.NextColumn();
         DrawCommandCard(
-            "MCP serve",
-            "Starts the local MCP bridge with the plugin-discovered live pipe.",
+            "MCP 服务",
+            "通过插件发现的管道启动本地 MCP 桥接。",
             ToCommandSummary(model.McpCommand),
             model.McpCommand,
-            "Copy MCP Serve Command");
+            "复制 MCP 服务命令");
         ImGui.Columns(1);
         ImGui.EndChild();
     }
@@ -201,7 +201,7 @@ public sealed class PluginConfigWindow
     private void DrawAdvancedDetails()
     {
         ImGui.Spacing();
-        if (!ImGui.CollapsingHeader("Advanced details", ref showAdvancedDetails))
+        if (!ImGui.CollapsingHeader("高级详情", ref showAdvancedDetails))
             return;
 
         if (!ImGui.BeginChild("AdvancedPanel", new Vector2(0f, 132f), true))
@@ -210,11 +210,11 @@ public sealed class PluginConfigWindow
             return;
         }
 
-        DrawKeyValue("Pipe", model.PipeName);
-        DrawKeyValue("CLI command", model.CliCommand);
-        DrawKeyValue("MCP serve", model.McpCommand);
+        DrawKeyValue("管道", model.PipeName);
+        DrawKeyValue("CLI 命令", model.CliCommand);
+        DrawKeyValue("MCP 服务", model.McpCommand);
         if (!string.IsNullOrWhiteSpace(model.McpServerCommand))
-            DrawKeyValue("HTTP command", model.McpServerCommand);
+            DrawKeyValue("HTTP 命令", model.McpServerCommand);
         if (!string.IsNullOrWhiteSpace(model.McpServerErrorText))
             DrawWrappedStatus(DangerColor, model.McpServerErrorText);
 
@@ -229,12 +229,12 @@ public sealed class PluginConfigWindow
             return;
         }
 
-        DrawPanelTitle("HTTP Server", "Stable MCP endpoint for clients that should not care about pipe names.");
-        DrawKeyValue("Endpoint", model.McpServerEndpoint);
-        DrawStatusLine("HTTP state", model.McpServerRunning, model.McpServerStatusText);
+        DrawPanelTitle("HTTP 服务器", "稳定的 MCP 端点，供无需关心管道名的客户端使用。");
+        DrawKeyValue("端点", model.McpServerEndpoint);
+        DrawStatusLine("HTTP 状态", model.McpServerRunning, model.McpServerStatusText);
 
         bool autoStartHttpServerOnLoad = model.AutoStartHttpServerOnLoad;
-        if (ImGui.Checkbox("Start MCP HTTP Server automatically on plugin load", ref autoStartHttpServerOnLoad))
+        if (ImGui.Checkbox("插件加载时自动启动 MCP HTTP 服务器", ref autoStartHttpServerOnLoad))
         {
             configurationStore.Update(configuration =>
                 configuration.AutoStartHttpServerOnLoad = autoStartHttpServerOnLoad);
@@ -244,25 +244,25 @@ public sealed class PluginConfigWindow
         ImGui.Spacing();
         if (!model.McpServerRunning)
         {
-            if (ImGui.Button("Start MCP HTTP Server", new Vector2(220f, 0f)))
+            if (ImGui.Button("启动 MCP HTTP 服务器", new Vector2(220f, 0f)))
             {
                 mcpServerController.Start();
                 nextRefreshAt = 0;
             }
         }
-        else if (ImGui.Button("Stop MCP HTTP Server", new Vector2(220f, 0f)))
+        else if (ImGui.Button("停止 MCP HTTP 服务器", new Vector2(220f, 0f)))
         {
             mcpServerController.Stop();
             nextRefreshAt = 0;
         }
 
         ImGui.SameLine();
-        if (ImGui.Button("Copy MCP Endpoint", new Vector2(180f, 0f)))
+        if (ImGui.Button("复制 MCP 端点", new Vector2(180f, 0f)))
             ImGui.SetClipboardText(model.McpServerEndpoint);
 
         if (!string.IsNullOrWhiteSpace(model.McpServerCommand))
         {
-            if (ImGui.Button("Copy MCP Server Command", new Vector2(220f, 0f)))
+            if (ImGui.Button("复制 MCP 服务器命令", new Vector2(220f, 0f)))
                 ImGui.SetClipboardText(model.McpServerCommand);
         }
 
@@ -278,17 +278,17 @@ public sealed class PluginConfigWindow
             return;
         }
 
-        DrawPanelTitle("Operations", "Filter the exported surface before you hand the plugin to another client.");
+        DrawPanelTitle("操作", "在将插件交给其他客户端前，筛选暴露的接口。");
         DrawKeyValue(
-            "Catalog",
-            $"{model.OperationCount} total  |  {model.ActionOperationCount} action  |  {model.UnsafeOperationCount} unsafe  |  {model.BlockedOperationCount} gated");
+            "目录",
+            $"{model.OperationCount} 总计  |  {model.ActionOperationCount} 动作  |  {model.UnsafeOperationCount} 非安全  |  {model.BlockedOperationCount} 已限制");
 
         ImGui.SetNextItemWidth(280f);
-        ImGui.InputText("Search", ref operationFilter, 128);
+        ImGui.InputText("搜索", ref operationFilter, 128);
         ImGui.SameLine();
-        ImGui.Checkbox("Blocked only", ref showBlockedOnly);
+        ImGui.Checkbox("仅显示已限制", ref showBlockedOnly);
         ImGui.SameLine();
-        ImGui.Checkbox("Reader-backed only", ref showReaderBackedOnly);
+        ImGui.Checkbox("仅显示有读取器", ref showReaderBackedOnly);
 
         IReadOnlyList<PluginConfigOperationRow> operations = model.Operations;
         const ImGuiTableFlags tableFlags =
@@ -301,10 +301,10 @@ public sealed class PluginConfigWindow
 
         if (ImGui.BeginTable("OperationsTable", 4, tableFlags, new Vector2(0f, 0f)))
         {
-            ImGui.TableSetupColumn("Operation", ImGuiTableColumnFlags.WidthStretch, 0.27f);
-            ImGui.TableSetupColumn("Access", ImGuiTableColumnFlags.WidthStretch, 0.23f);
-            ImGui.TableSetupColumn("State", ImGuiTableColumnFlags.WidthStretch, 0.20f);
-            ImGui.TableSetupColumn("Summary", ImGuiTableColumnFlags.WidthStretch, 0.30f);
+            ImGui.TableSetupColumn("操作", ImGuiTableColumnFlags.WidthStretch, 0.27f);
+            ImGui.TableSetupColumn("访问", ImGuiTableColumnFlags.WidthStretch, 0.23f);
+            ImGui.TableSetupColumn("状态", ImGuiTableColumnFlags.WidthStretch, 0.20f);
+            ImGui.TableSetupColumn("摘要", ImGuiTableColumnFlags.WidthStretch, 0.30f);
             ImGui.TableHeadersRow();
 
             int visibleCount = 0;
@@ -319,9 +319,9 @@ public sealed class PluginConfigWindow
 
                 ImGui.TableSetColumnIndex(0);
                 ImGui.TextUnformatted(operation.OperationId);
-                DrawInlineTag(operation.IsActionOperation ? "ACTION" : "OBSERVE", operation.IsActionOperation ? WarningColor : SuccessColor);
+                DrawInlineTag(operation.IsActionOperation ? "动作" : "观察", operation.IsActionOperation ? WarningColor : SuccessColor);
                 if (operation.IsUnsafeOperation)
-                    DrawInlineTag("UNSAFE", DangerColor);
+                    DrawInlineTag("非安全", DangerColor);
 
                 ImGui.TableSetColumnIndex(1);
                 if (!string.IsNullOrWhiteSpace(operation.CliCommandText))
@@ -337,7 +337,7 @@ public sealed class PluginConfigWindow
                 if (string.IsNullOrWhiteSpace(operation.ReaderStatusText) &&
                     string.IsNullOrWhiteSpace(operation.ExposureStatusText))
                 {
-                    ImGui.TextColored(SuccessColor, "Ready to expose");
+                    ImGui.TextColored(SuccessColor, "可暴露");
                 }
 
                 ImGui.TableSetColumnIndex(3);
@@ -348,7 +348,7 @@ public sealed class PluginConfigWindow
             {
                 ImGui.TableNextRow();
                 ImGui.TableSetColumnIndex(0);
-                ImGui.TextColored(MutedColor, "No operations matched the current filter.");
+                ImGui.TextColored(MutedColor, "无操作匹配当前筛选条件。");
             }
 
             ImGui.EndTable();
