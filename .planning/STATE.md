@@ -9,10 +9,15 @@ See: .planning/PROJECT.md (updated 2026-04-30)
 
 ## Current Position
 
-Phase: 1 of 7 (构建环境前提确认)
+Phase: 1 of 9 (构建环境前提确认)
 Plan: 0 of 0 in current phase
 Status: Ready to plan
-Last activity: 2026-04-30 — Roadmap created
+Last activity: 2026-05-01 — Phase 9 planned (3 plans, 3 waves)
+
+### Roadmap Evolution
+
+- Phase 9 added: 可切换界面显示中文、英文
+- Phase 9 planned: 3 plans in 3 waves, verified by plan-checker
 
 Progress: [░░░░░░░░░░] 0%
 

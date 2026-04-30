@@ -14,6 +14,7 @@
 - [ ] **Phase 6: IPC 桥接与 CLI 模式验证** - 命名管道 IPC、stdio MCP、HTTP MCP、直接 CLI 均正常工作
 - [ ] **Phase 7: 打包验证** - 发布 zip 中 manifest 准确，`DalamudApiLevel` 为 15
 - [ ] **Phase 8: 改中文界面** - 将插件 UI 文本改为中文显示
+- [ ] **Phase 9: 可切换界面语言** - 支持在中文和英文之间切换界面显示语言
 
 ## Phase Details
 
@@ -105,10 +106,27 @@ Plans:
   3. CLI 帮助文本可切换为中文
 **Plans**: TBD
 
+### Phase 9: 可切换界面语言
+**Goal**: 插件 UI 支持在中文和英文之间切换显示语言
+**Depends on**: Phase 8
+**Requirements**: REQ-01, REQ-02, REQ-03, REQ-04, REQ-05
+**Success Criteria** (what must be TRUE):
+  1. 配置窗口中提供语言切换选项（中文/English）
+  2. 切换语言后所有 UI 文本即时更新，无需重启插件
+  3. 语言偏好持久化保存，下次启动时保持选择
+  4. 操作结果和状态信息跟随语言切换
+  5. CLI 帮助文本随语言切换更新
+**Plans**: 3 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — 创建本地化服务基础设施（IUiLocalization + JsonLocalization + JSON 词典 + 配置 + DI）
+- [ ] 09-02-PLAN.md — 集成本地化到模型、操作行、窗口和入口点
+- [ ] 09-03-PLAN.md — 重构模型测试 + 创建 JsonLocalization 单元测试
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -120,3 +138,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 6. IPC 桥接与 CLI 模式验证 | 0/0 | Not started | - |
 | 7. 打包验证 | 0/0 | Not started | - |
 | 8. 改中文界面 | 0/0 | Not started | - |
+| 9. 可切换界面语言 | 0/0 | Not started | - |
