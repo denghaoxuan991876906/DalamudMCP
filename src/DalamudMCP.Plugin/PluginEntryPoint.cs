@@ -30,7 +30,8 @@ public sealed class PluginEntryPoint : IDalamudPlugin
         IFateTable fateTable,
         IDataManager dataManager,
         IGameGui gameGui,
-        ITargetManager targetManager)
+        ITargetManager targetManager,
+        IChatGui chatGui)
     {
         ArgumentNullException.ThrowIfNull(pluginInterface);
         ArgumentNullException.ThrowIfNull(framework);
@@ -43,6 +44,7 @@ public sealed class PluginEntryPoint : IDalamudPlugin
         ArgumentNullException.ThrowIfNull(dataManager);
         ArgumentNullException.ThrowIfNull(gameGui);
         ArgumentNullException.ThrowIfNull(targetManager);
+        ArgumentNullException.ThrowIfNull(chatGui);
 
         this.pluginInterface = pluginInterface;
         configurationStore = PluginUiConfigurationStore.Load(pluginInterface);
@@ -58,7 +60,8 @@ public sealed class PluginEntryPoint : IDalamudPlugin
             fateTable,
             dataManager,
             gameGui,
-            targetManager);
+            targetManager,
+            chatGui);
         compositionRoot.StartAsync().GetAwaiter().GetResult();
         ProtocolClientDiscovery.Write(
             new ProtocolClientDiscoveryRecord(

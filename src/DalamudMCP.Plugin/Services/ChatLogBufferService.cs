@@ -1,8 +1,7 @@
 using System.Collections.Concurrent;
 using System.Runtime.Versioning;
-using System.Text;
+using Dalamud.Game.Chat;
 using Dalamud.Game.Text;
-using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Plugin.Services;
 using MemoryPack;
 
@@ -70,29 +69,23 @@ public sealed class ChatLogBufferService : IDisposable
             .ToArray();
     }
 
-    private void OnChatMessage(
-        XivChatType type,
-        uint senderId,
-        ref SeString? sender,
-        ref SeString? originalSender,
-        ref bool isHandled,
-        XivChatRelationKind sourceKind,
-        XivChatRelationKind targetKind)
+    private void OnChatMessage(IHandleableChatMessage message)
     {
-        // Extract sender name from SeString if available
-        string? senderName = sender?.TextValue;
-        string? messageText = originalSender?.TextValue;
+        ArgumentNullException.ThrowIfNull(message);
+
+        string? senderName = message.Sender?.TextValue;
+        string? messageText = message.Message?.TextValue;
 
         var entry = new ChatLogEntry(
             Guid.NewGuid(),
             DateTimeOffset.UtcNow,
-            type,
-            type.ToString(),
-            senderId,
+            message.LogKind,
+            message.LogKind.ToString(),
+            0, // SenderId not directly available on IChatMessage in API 15
             senderName,
             messageText ?? string.Empty,
-            sourceKind,
-            targetKind);
+            message.SourceKind,
+            message.TargetKind);
 
         entries.Enqueue(entry);
         Interlocked.Increment(ref totalEnqueued);

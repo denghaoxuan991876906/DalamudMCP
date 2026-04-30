@@ -50,6 +50,7 @@ public sealed class PluginCompositionRoot : IAsyncDisposable
         IDataManager dataManager,
         IGameGui gameGui,
         ITargetManager targetManager,
+        IChatGui chatGui,
         string? pipeName = null)
     {
         ArgumentNullException.ThrowIfNull(pluginInterface);
@@ -64,6 +65,7 @@ public sealed class PluginCompositionRoot : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(dataManager);
         ArgumentNullException.ThrowIfNull(gameGui);
         ArgumentNullException.ThrowIfNull(targetManager);
+        ArgumentNullException.ThrowIfNull(chatGui);
 
         PluginRuntimeOptions options = PluginRuntimeOptions.CreateDefault(pluginInterface.ConfigDirectory.FullName, pipeName);
         ServiceProvider serviceProvider = Hosting.PluginServiceCollectionExtensions.BuildDalamudServiceProvider(
@@ -79,7 +81,8 @@ public sealed class PluginCompositionRoot : IAsyncDisposable
             fateTable,
             dataManager,
             gameGui,
-            targetManager);
+            targetManager,
+            chatGui);
 
         return new PluginCompositionRoot(
             serviceProvider,

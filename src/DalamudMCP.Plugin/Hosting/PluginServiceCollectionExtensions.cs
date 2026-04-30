@@ -25,7 +25,8 @@ public static class PluginServiceCollectionExtensions
         IFateTable fateTable,
         IDataManager dataManager,
         IGameGui gameGui,
-        ITargetManager targetManager)
+        ITargetManager targetManager,
+        IChatGui chatGui)
     {
         ArgumentNullException.ThrowIfNull(pluginInterface);
         ArgumentNullException.ThrowIfNull(configurationStore);
@@ -40,6 +41,7 @@ public static class PluginServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(dataManager);
         ArgumentNullException.ThrowIfNull(gameGui);
         ArgumentNullException.ThrowIfNull(targetManager);
+        ArgumentNullException.ThrowIfNull(chatGui);
 
         ServiceCollection services = new();
         services.AddSingleton(options);
@@ -57,6 +59,8 @@ public static class PluginServiceCollectionExtensions
         services.AddSingleton(dataManager);
         services.AddSingleton(gameGui);
         services.AddSingleton(targetManager);
+        services.AddSingleton(chatGui);
+        services.AddSingleton<Services.ChatLogBufferService>();
         services.AddGeneratedPluginOperations();
         services.AddSingleton<IOperationInvoker, GeneratedOperationInvoker>();
         services.AddSingleton<IReadOnlyList<OperationDescriptor>>(static _ => GeneratedOperationRegistry.Operations);
