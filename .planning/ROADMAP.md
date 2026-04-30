@@ -13,6 +13,7 @@
 - [ ] **Phase 5: 运行时加载与操作验证** - 插件在 API 15 运行时中加载，20+ 操作功能正确
 - [ ] **Phase 6: IPC 桥接与 CLI 模式验证** - 命名管道 IPC、stdio MCP、HTTP MCP、直接 CLI 均正常工作
 - [ ] **Phase 7: 打包验证** - 发布 zip 中 manifest 准确，`DalamudApiLevel` 为 15
+- [ ] **Phase 8: 改中文界面** - 将插件 UI 文本改为中文显示
 
 ## Phase Details
 
@@ -94,10 +95,20 @@ Plans:
   3. zip 包中无多余文件或错误版本的文件
 **Plans**: TBD
 
+### Phase 8: 改中文界面
+**Goal**: 插件配置窗口等 UI 文本改为中文显示
+**Depends on**: Phase 5
+**Requirements**: TBD
+**Success Criteria** (what must be TRUE):
+  1. 插件配置窗口文本为中文
+  2. 操作结果和状态信息为中文
+  3. CLI 帮助文本可切换为中文
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -108,3 +119,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 5. 运行时加载与操作验证 | 0/0 | Not started | - |
 | 6. IPC 桥接与 CLI 模式验证 | 0/0 | Not started | - |
 | 7. 打包验证 | 0/0 | Not started | - |
+| 8. 改中文界面 | 0/0 | Not started | - |
