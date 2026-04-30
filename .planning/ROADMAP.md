@@ -127,13 +127,18 @@ Plans:
 ### Phase 10: 添加日志读取能力
 **Goal**: 插件能通过 MCP 向 AI 客户端暴露游戏日志（聊天日志/战斗日志/系统日志）
 **Depends on**: Phase 5
-**Requirements**: TBD
+**Requirements**: LOG-01, LOG-02, LOG-03, LOG-04, LOG-05, LOG-06, LOG-07, LOG-08, LOG-09
 **Success Criteria** (what must be TRUE):
   1. 插件订阅 Dalamud 日志事件（IChatGui.ChatMessage 或 LogMessage），可读取运行时日志
   2. 新增 MCP 观察工具（如 `get_chat_log`），支持按频道、时间范围过滤
   3. AI 客户端可通过 MCP 实时获取聊天/战斗/系统日志的结构化数据
   4. CLI 模式支持通过命令行查询日志（直接 CLI / stdio MCP / HTTP MCP）
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — ChatLogEntry 数据模型 + ChatLogBufferService（事件订阅 + 线程安全缓冲区）
+- [ ] 10-02-PLAN.md — ChatLogReadOperation + DI 链注入（IChatGui + ChatLogBufferService 注册到容器）
+- [ ] 10-03-PLAN.md — 单元测试（ChatLogBufferService 过滤测试 + ChatLogReadOperation 属性/执行测试）
 
 ## Progress
 
@@ -151,4 +156,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 7. 打包验证 | 0/0 | Not started | - |
 | 8. 改中文界面 | 0/0 | Not started | - |
 | 9. 可切换界面语言 | 3/3 | Complete | 2026-05-01 |
-| 10. 添加日志读取能力 | 0/0 | Not started | - |
+| 10. 添加日志读取能力 | 3/3 | Planned (ready) | - |
