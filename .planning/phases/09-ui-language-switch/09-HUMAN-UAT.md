@@ -1,5 +1,5 @@
 ---
-status: partial
+status: resolved
 phase: 09-ui-language-switch
 source: [09-VERIFICATION.md]
 started: 2026-05-01T00:00:00Z

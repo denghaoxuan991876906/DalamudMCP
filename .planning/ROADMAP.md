@@ -14,7 +14,8 @@
 - [ ] **Phase 6: IPC 桥接与 CLI 模式验证** - 命名管道 IPC、stdio MCP、HTTP MCP、直接 CLI 均正常工作
 - [ ] **Phase 7: 打包验证** - 发布 zip 中 manifest 准确，`DalamudApiLevel` 为 15
 - [ ] **Phase 8: 改中文界面** - 将插件 UI 文本改为中文显示
-- [ ] **Phase 9: 可切换界面语言** - 支持在中文和英文之间切换界面显示语言
+- [x] **Phase 9: 可切换界面语言** - 支持在中文和英文之间切换界面显示语言
+- [ ] **Phase 10: 添加日志读取能力** - 通过 MCP 暴露游戏日志（聊天/战斗/系统）给 AI 客户端
 
 ## Phase Details
 
@@ -119,14 +120,25 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 09-01-PLAN.md — 创建本地化服务基础设施（IUiLocalization + JsonLocalization + JSON 词典 + 配置 + DI）
-- [ ] 09-02-PLAN.md — 集成本地化到模型、操作行、窗口和入口点
-- [ ] 09-03-PLAN.md — 重构模型测试 + 创建 JsonLocalization 单元测试
+- [x] 09-01-PLAN.md — 创建本地化服务基础设施（IUiLocalization + JsonLocalization + JSON 词典 + 配置 + DI）
+- [x] 09-02-PLAN.md — 集成本地化到模型、操作行、窗口和入口点
+- [x] 09-03-PLAN.md — 重构模型测试 + 创建 JsonLocalization 单元测试
+
+### Phase 10: 添加日志读取能力
+**Goal**: 插件能通过 MCP 向 AI 客户端暴露游戏日志（聊天日志/战斗日志/系统日志）
+**Depends on**: Phase 5
+**Requirements**: TBD
+**Success Criteria** (what must be TRUE):
+  1. 插件订阅 Dalamud 日志事件（IChatGui.ChatMessage 或 LogMessage），可读取运行时日志
+  2. 新增 MCP 观察工具（如 `get_chat_log`），支持按频道、时间范围过滤
+  3. AI 客户端可通过 MCP 实时获取聊天/战斗/系统日志的结构化数据
+  4. CLI 模式支持通过命令行查询日志（直接 CLI / stdio MCP / HTTP MCP）
+**Plans**: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -138,4 +150,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 6. IPC 桥接与 CLI 模式验证 | 0/0 | Not started | - |
 | 7. 打包验证 | 0/0 | Not started | - |
 | 8. 改中文界面 | 0/0 | Not started | - |
-| 9. 可切换界面语言 | 0/0 | Not started | - |
+| 9. 可切换界面语言 | 3/3 | Complete | 2026-05-01 |
+| 10. 添加日志读取能力 | 0/0 | Not started | - |

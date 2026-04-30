@@ -9,34 +9,36 @@ See: .planning/PROJECT.md (updated 2026-04-30)
 
 ## Current Position
 
-Phase: 1 of 9 (构建环境前提确认)
+Phase: 1 of 10 (构建环境前提确认)
 Plan: 0 of 0 in current phase
 Status: Ready to plan
-Last activity: 2026-05-01 — Phase 9 planned (3 plans, 3 waves)
+Last activity: 2026-05-01 — Phase 9 execution completed (3/3 plans, 34/34 tests passing)
 
 ### Roadmap Evolution
 
 - Phase 9 added: 可切换界面显示中文、英文
 - Phase 9 planned: 3 plans in 3 waves, verified by plan-checker
+- Phase 10 added: 添加日志读取能力（聊天/战斗/系统日志 MCP 暴露）
+- Phase 9 completed: 3 plans executed, 10 commits, VERIFICATION.md human_needed → approved
 
 Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: N/A
-- Total execution time: 0 hours
+- Total plans completed: 3
+- Average duration: ~8 min
+- Total execution time: ~24 minutes
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 9 | 09-01, 09-02, 09-03 | ~24 min | ~8 min |
 
 **Recent Trend:**
-- Last 5 plans: N/A
-- Trend: N/A
+- Last 5 plans: 09-01 (~4m), 09-02 (~12m), 09-03 (~9m)
+- Trend: Stable
 
 *Updated after each plan completion*
 
