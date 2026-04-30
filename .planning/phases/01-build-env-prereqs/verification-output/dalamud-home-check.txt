@@ -1,0 +1,20 @@
+========================================
+DALAMUD_HOME Path Resolution + Dalamud.dll Version
+========================================
+Check Time: 2026-04-30 22:14
+----------------------------------------
+Expected: Resolve-DalamudHome returns non-null path
+Default AppData Path: C:\Users\嗨呀\AppData\Roaming\XIVLauncher\addon\Hooks\dev
+Actual: Path EXISTS
+Status: PASS
+----------------------------------------
+Expected: Dalamud.dll FileVersion = 15.0.0.0
+Actual: FileVersion = 15.0.0.0
+Status: PASS
+----------------------------------------
+Note: Use-DalamudHome.ps1 uses $IsWindows auto-variable (PS 6+).
+In PS 5.1, set $IsWindows=$true before dot-sourcing the script,
+or set $env:DALAMUD_HOME directly to the default path.
+----------------------------------------
+DALAMUD_HOME env var: (not set - default path resolved)
+========================================

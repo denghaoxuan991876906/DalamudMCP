@@ -1,0 +1,18 @@
+========================================
+.NET SDK Version Verification
+========================================
+Check Time: 2026-04-30 22:14
+----------------------------------------
+Source: global.json
+Required (sdk.version): 10.0.201
+rollForward policy: latestFeature
+----------------------------------------
+Installed SDK: 10.0.101 [C:\Program Files\dotnet\sdk]
+dotnet --version (outside project): 10.0.101
+dotnet --version (inside project): FAILS - global.json requires 10.0.201
+----------------------------------------
+major.minor: 10.0 (expected 10.0)
+Status: FAIL
+Fix: Install .NET SDK 10.0.201 or update global.json to 10.0.101
+     (currently only 10.0.101 is installed)
+========================================
