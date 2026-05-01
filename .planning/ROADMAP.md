@@ -27,7 +27,7 @@
 
 **Milestone Goal:** 让 DalamudMCP 成为其他 Dalamud 插件的自动化测试桥梁，AI 可重载插件、调用 IPC、接收回传数据、发送斜杠命令
 
-- [ ] **Phase 11: IPC 基础设施提取** — 提取共享 IPC 网关服务，为后续跨插件功能奠定基础
+- [x] **Phase 11: IPC 基础设施提取** — 提取共享 IPC 网关服务，为后续跨插件功能奠定基础
 - [ ] **Phase 12: 插件重载操作** — AI 通过 MCP 触发指定插件重载
 - [ ] **Phase 13: 斜杠命令调度** — AI 通过 MCP 发送游戏内斜杠命令
 - [ ] **Phase 14: 安全 IPC 调用** — AI 通过 MCP 调用目标插件的 IPC 方法并获取返回值
@@ -49,7 +49,7 @@
 Plans:
 - [x] 11-01-PLAN.md — 提取 IPC 接口和实现到独立文件（4 个新文件）
 - [x] 11-02-PLAN.md — 重构操作类并注册 DI（2 个现有文件修改）
-- [ ] 11-03-PLAN.md — 提取测试桩并新增服务测试（5 个文件）
+- [x] 11-03-PLAN.md — 提取测试桩并新增服务测试（6 个文件）
 
 ### Phase 12: 插件重载操作
 **Goal**: AI 客户端能够通过 MCP 工具触发指定插件的卸载→重载，获取结构化状态响应
@@ -105,7 +105,7 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 11. IPC 基础设施提取 | v1.1 | 2/3 | In Progress | - |
+| 11. IPC 基础设施提取 | v1.1 | 3/3 | Complete ✅ | 2026-05-01 |
 | 12. 插件重载操作 | v1.1 | 0/? | Not started | - |
 | 13. 斜杠命令调度 | v1.1 | 0/? | Not started | - |
 | 14. 安全 IPC 调用 | v1.1 | 0/? | Not started | - |
