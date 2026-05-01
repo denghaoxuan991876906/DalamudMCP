@@ -30,7 +30,7 @@
 - [x] **Phase 11: IPC 基础设施提取** — 提取共享 IPC 网关服务，为后续跨插件功能奠定基础
 - [ ] **Phase 12: 插件重载操作** — AI 通过 MCP 触发指定插件重载
 - [x] **Phase 13: 斜杠命令调度** — AI 通过 MCP 发送游戏内斜杠命令
-- [ ] **Phase 14: 安全 IPC 调用** — AI 通过 MCP 调用目标插件的 IPC 方法并获取返回值
+- [x] **Phase 14: 安全 IPC 调用** — AI 通过 MCP 调用目标插件的 IPC 方法并获取返回值
 - [ ] **Phase 15: 数据回传** — 目标插件通过 IPC 发送数据，AI 通过 MCP 轮询获取
 
 ## Phase Details
@@ -94,8 +94,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 14-01-PLAN.md — 创建 SafeInvokePluginIpcOperation 操作类 + 注册 "plugin.ipc" 到 unsafe 暴露策略
-- [ ] 14-02-PLAN.md — 创建单元测试（24 个测试覆盖全部 5 种状态码/类型推断/线程编排/构造验证）
+- [x] 14-01-PLAN.md — 创建 SafeInvokePluginIpcOperation 操作类 + 注册 "plugin.ipc" 到 unsafe 暴露策略
+- [x] 14-02-PLAN.md — 创建单元测试（24 个测试覆盖全部 5 种状态码/类型推断/线程编排/构造验证）
 
 ### Phase 15: 数据回传
 **Goal**: 目标插件能够通过 IPC 向 DalamudMCP 推送结构化数据，AI 客户端通过 MCP 操作轮询获取这些数据
@@ -120,7 +120,7 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
 | 11. IPC 基础设施提取 | v1.1 | 3/3 | Complete ✅ | 2026-05-01 |
 | 12. 插件重载操作 | v1.1 | 2/2 | Complete ✅ | 2026-05-01 |
 | 13. 斜杠命令调度 | v1.1 | 2/2 | Complete ✅ | 2026-05-01 |
-| 14. 安全 IPC 调用 | v1.1 | 0/2 | Planned | 2026-05-01 |
+| 14. 安全 IPC 调用 | v1.1 | 2/2 | Complete ✅ | 2026-05-01 |
 | 15. 数据回传 | v1.1 | 0/? | Not started | - |
 
 ---

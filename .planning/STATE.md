@@ -5,37 +5,37 @@
 See: .planning/PROJECT.md (updated 2026-05-01)
 
 **Core value:** AI 客户端能够以结构化的方式与 FFXIV 游戏及其他 Dalamud 插件交互，实现自动化测试
-**Current focus:** Phase 13 — 斜杠命令调度（下一阶段，Phase 12 已完成）
+**Current focus:** Phase 15 — 数据回传（最终阶段）
 
 ## Current Position
 
 Milestone: v1.1 自动化测试桥接
-Phase: 13 of 15 (斜杠命令调度) — Context gathered
-Plan: 0 of ? (not yet planned)
-Status: 🟡 Phase 13 — Context captured, ready for research/planning.
-Last activity: 2026-05-01 — Phase 13 discuss-phase completed (1 area discussed, CONTEXT.md written)
+Phase: 14 of 15 (安全 IPC 调用) — Complete
+Status: 🟢 Phase 14 完成，等待 Phase 15（最终阶段）
+Last activity: 2026-05-01 — Phase 14 全部执行完成（2/2 plans, 24/24 tests passing）
 
-Progress: [▓▓░░░░░░░░░░░░░░] 10%
+Progress: [████████████████░░░] 80% (4/5 phases, 9/9+ plans in v1.1)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18 (15 v1.0 + 3 v1.1)
-- Average duration: 8.8 min (v1.1)
-- Total execution time: 28.1 min (v1.1)
+- Total plans completed: 20 (15 v1.0 + 5 v1.1)
+- Average duration: ~9 min (v1.1)
+- Total execution time: ~45 min (v1.1)
 
 **By Phase:**
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| v1.0 (1-10) | 15 | — | — |
-| 11-ipc-infra | 3 | 28.1 min | 9.4 min |
+| Phase | Plans | Status |
+|-------|-------|--------|
+| v1.0 (1-10) | 15 | ✅ Shipped |
+| 11-ipc-infra | 3 | ✅ Complete |
+| 12-plugin-reload | 2 | ✅ Complete |
+| 13-slash-command | 2 | ✅ Complete |
+| 14-safe-ipc-invoke | 2 | ✅ Complete |
 
 **Recent Trend:**
-- Last 5 plans: v1.0 plans completed 2026-05-01
+- Last 2 plans: Phase 14 (SafeInvokePluginIpcOperation + tests) completed 2026-05-01
 - Trend: Stable
-
-*Updated after v1.1 roadmap creation*
 
 ## Accumulated Context
 
@@ -44,11 +44,13 @@ Progress: [▓▓░░░░░░░░░░░░░░] 10%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- D-01: 宽松命令验证（/ 前缀 + 256 字符上限）
+- D-02: 不过滤特殊字符，让 ICommandManager 自然处理
+- command.slash 归类为 unsafe 操作，受 UI 安全开关控制
 - 被测插件不依赖 SDK，只需实现 IPC 接口约定（降低接入门槛）
-- 单步交互式测试流程，AI 灵活控制步骤（无预定义场景）
-- 重载后不自动等待就绪，AI 端自行决定延迟（更灵活）
-- 数据回传采用轮询模式（AI 主动 poll），不用 MCP Notification 推送（保持架构一致性）
-- IPC 调用仅支持基元类型和 JSON 字符串信封（无 SDK 依赖约束）
+- 单步交互式测试流程，AI 灵活控制步骤
+- 重载后不自动等待就绪，AI 端自行决定延迟
+- IPC 调用仅支持基元类型和 JSON 字符串信封
 
 ### Pending Todos
 
@@ -56,9 +58,7 @@ None.
 
 ### Blockers/Concerns
 
-- `IExposedPlugin.Reload()` 运行时行为需 Phase 12 验证（线程要求、完成时机）
 - `ICallGateSubscriber` 泛型参数运行时限制需 Phase 14 验证
-- `/xlreload` 是否可通过 `ICommandManager.ProcessCommand()` 派发需 Phase 13 确认
 - IPC 事件订阅回调的线程模型需 Phase 15 测试
 
 ## Deferred Items
@@ -72,5 +72,4 @@ None.
 ## Session Continuity
 
 Last session: 2026-05-01
-Stopped at: Phase 13 context gathered — discuss-phase completed
-Resume file: .planning/phases/13-slash-command/13-CONTEXT.md
+Stopped at: Phase 13 complete → ready for Phase 14
