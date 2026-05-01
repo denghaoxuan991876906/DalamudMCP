@@ -73,9 +73,13 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. AI 通过 MCP `slash_command` 工具发送以 `/` 开头的命令字符串
   2. 命令通过 `ICommandManager.ProcessCommand()` 在 Framework 线程上派发，采用 fire-and-forget 模式
-  3. 输入经过验证：命令必须以 `/` 开头、长度有限制、过滤特殊字符
-  4. 仅支持 Dalamud 注册命令，游戏原生命令返回明确错误提示
-**Plans**: TBD
+  3. 输入经过验证：命令必须以 `/` 开头（D-01）、长度 ≤ 256 字符（D-01）、不过滤特殊字符（D-02）
+  4. 仅支持 Dalamud 注册命令，游戏原生命令在 MCP 工具描述中说明限制
+**Plans**: 2 plans
+
+Plans:
+- [ ] 13-01-PLAN.md — 创建 SlashCommandOperation 操作类 + 注册 unsafe 暴露策略
+- [ ] 13-02-PLAN.md — 创建单元测试（10 个测试覆盖全部验证/线程/构造路径）
 
 ### Phase 14: 安全 IPC 调用
 **Goal**: AI 客户端能够通过 MCP 调用目标插件的 IPC 函数，传入参数并获取返回值，错误信息结构化可读
@@ -111,7 +115,7 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
 |-------|-----------|----------------|--------|-----------|
 | 11. IPC 基础设施提取 | v1.1 | 3/3 | Complete ✅ | 2026-05-01 |
 | 12. 插件重载操作 | v1.1 | 2/2 | Complete ✅ | 2026-05-01 |
-| 13. 斜杠命令调度 | v1.1 | 0/? | Not started | - |
+| 13. 斜杠命令调度 | v1.1 | 0/2 | Planned | 2026-05-01 |
 | 14. 安全 IPC 调用 | v1.1 | 0/? | Not started | - |
 | 15. 数据回传 | v1.1 | 0/? | Not started | - |
 
