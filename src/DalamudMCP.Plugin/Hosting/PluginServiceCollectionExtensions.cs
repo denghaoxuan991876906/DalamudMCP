@@ -3,6 +3,7 @@ using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using DalamudMCP.Framework;
 using DalamudMCP.Framework.Generated;
+using DalamudMCP.Plugin.Ipc;
 using DalamudMCP.Plugin.Ui.Localization;
 using DalamudMCP.Protocol;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,6 +48,7 @@ public static class PluginServiceCollectionExtensions
         services.AddSingleton(options);
         services.AddSingleton(pluginInterface);
         services.AddSingleton(configurationStore);
+        services.AddSingleton<IPluginIpcGateway, PluginIpcGateway>();
         services.AddSingleton<IUiLocalization, JsonLocalization>();
         services.AddSingleton<Configuration.IPluginUiConfigurationAccessor>(configurationStore);
         services.AddSingleton(framework);
