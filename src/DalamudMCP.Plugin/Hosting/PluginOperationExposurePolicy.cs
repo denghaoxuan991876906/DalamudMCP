@@ -23,7 +23,10 @@ internal static class PluginOperationExposurePolicy
         "unsafe.invoke.plugin-ipc",
         "plugin.reload",
         "command.slash",
-        "plugin.ipc"
+        "plugin.ipc",
+        "plugin.data.subscribe",
+        "plugin.data.unsubscribe",
+        "plugin.data.poll"
     ];
 
     public static bool IsActionOperation(string operationId)
