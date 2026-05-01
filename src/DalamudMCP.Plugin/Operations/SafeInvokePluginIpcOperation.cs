@@ -85,8 +85,12 @@ public sealed partial class SafeInvokePluginIpcOperation
             if (framework.IsInFrameworkUpdateThread)
                 return InvokeSafeIpc(gateway, request);
 
-            return await framework.RunOnFrameworkThread(
-                () => InvokeSafeIpc(gateway, request)).ConfigureAwait(false);
+            SafeInvokePluginIpcResult? result = null;
+            await framework.RunOnFrameworkThread(() =>
+            {
+                result = InvokeSafeIpc(gateway, request);
+            }).ConfigureAwait(false);
+            return result!;
         };
     }
 
@@ -141,6 +145,17 @@ public sealed partial class SafeInvokePluginIpcOperation
                 ErrorMessage: null,
                 SummaryText: $"IPC '{callgate}' succeeded. Return value: {returnJson}.");
         }
+        catch (InvalidCastException ex)
+        {
+            return new SafeInvokePluginIpcResult(
+                PluginName: pluginName,
+                Method: method,
+                Success: false,
+                Status: "ipc_type_mismatch",
+                ReturnValue: null,
+                ErrorMessage: $"Type mismatch: {ex.Message}",
+                SummaryText: $"IPC call failed: type mismatch for callgate '{callgate}'.");
+        }
         catch (TargetInvocationException ex) when (ex.InnerException is InvalidCastException)
         {
             return new SafeInvokePluginIpcResult(
@@ -172,7 +187,7 @@ public sealed partial class SafeInvokePluginIpcOperation
                 Status: "ipc_plugin_error",
                 ReturnValue: null,
                 ErrorMessage: ex.Message,
-                SummaryText: $"IPC call failed: error for callgate '{callgate}'. {ex.Message}");
+                SummaryText: $"IPC call failed: plugin error for callgate '{callgate}'. {ex.Message}");
         }
     }
 
