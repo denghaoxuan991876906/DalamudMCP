@@ -54,16 +54,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RELOAD-01 | — | Pending |
-| IPC-01 | — | Pending |
-| RELAY-01 | — | Pending |
-| SLASH-01 | — | Pending |
+| RELOAD-01 | Phase 12 | Pending |
+| IPC-01 | Phase 14 | Pending |
+| RELAY-01 | Phase 15 | Pending |
+| SLASH-01 | Phase 13 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 4 total
-- Mapped to phases: 0 ⚠️
-- Unmapped: 4 ⚠️ (will be mapped during roadmap creation)
+- Mapped to phases: 4 ✓
+- Unmapped: 0 ✓
+
+**Infrastructure dependency:** Phase 11 (IPC 基础设施提取) 不直接映射需求，但为 Phase 12/14/15 提供共享 IPC 网关服务支撑。
 
 ---
 *Requirements defined: 2026-05-01*
-*Last updated: 2026-05-01 after initial definition*
+*Last updated: 2026-05-01 after roadmap creation*

@@ -3,6 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 API 15 迁移** — Phases 1-10 (shipped 2026-05-01)
+- 🚧 **v1.1 自动化测试桥接** — Phases 11-15 (in progress)
 
 ## Phases
 
@@ -22,21 +23,89 @@
 
 </details>
 
+### 🚧 v1.1 自动化测试桥接 (In Progress)
+
+**Milestone Goal:** 让 DalamudMCP 成为其他 Dalamud 插件的自动化测试桥梁，AI 可重载插件、调用 IPC、接收回传数据、发送斜杠命令
+
+- [ ] **Phase 11: IPC 基础设施提取** — 提取共享 IPC 网关服务，为后续跨插件功能奠定基础
+- [ ] **Phase 12: 插件重载操作** — AI 通过 MCP 触发指定插件重载
+- [ ] **Phase 13: 斜杠命令调度** — AI 通过 MCP 发送游戏内斜杠命令
+- [ ] **Phase 14: 安全 IPC 调用** — AI 通过 MCP 调用目标插件的 IPC 方法并获取返回值
+- [ ] **Phase 15: 数据回传** — 目标插件通过 IPC 发送数据，AI 通过 MCP 轮询获取
+
+## Phase Details
+
+### Phase 11: IPC 基础设施提取
+**Goal**: 共享 IPC 网关服务可被所有跨插件操作注入使用，现有功能无回归
+**Depends on**: Nothing (基础设施，但依赖 v1.0 已完成的操作模型)
+**Requirements**: （基础设施阶段，为 RELOAD-01、IPC-01、RELAY-01 提供支撑）
+**Success Criteria** (what must be TRUE):
+  1. `IPluginIpcGateway` 和 `IPluginCallGateSubscriber` 从 `UnsafeInvokePluginIpcOperation` 提取为独立单例服务，注册到 DI 容器
+  2. 现有 `UnsafeInvokePluginIpcOperation` 重构为使用共享 IPC 网关，功能无回归
+  3. 所有现有测试通过，新增共享服务的单元测试
+  4. 新操作类可通过 DI 注入 `IPluginIpcGateway` 实现跨插件 IPC 调用
+**Plans**: TBD
+
+### Phase 12: 插件重载操作
+**Goal**: AI 客户端能够通过 MCP 工具触发指定插件的卸载→重载，获取结构化状态响应
+**Depends on**: Phase 11
+**Requirements**: RELOAD-01
+**Success Criteria** (what must be TRUE):
+  1. AI 通过 MCP `reload_plugin` 工具指定插件内部名称，触发该插件的 unload→reload 流程
+  2. 重载操作返回结构化响应，包含 `reload_initiated`/`ipc_missing`/`ipc_reloading` 等状态码
+  3. 重载操作在 Framework 线程上执行 `IExposedPlugin.Reload()`，不阻塞游戏主线程
+  4. MCP 工具描述中包含等待建议，指导 AI 在重载后轮询 IPC 通道就绪状态
+**Plans**: TBD
+
+### Phase 13: 斜杠命令调度
+**Goal**: AI 客户端能够通过 MCP 发送 Dalamud 注册的斜杠命令到游戏内
+**Depends on**: Phase 11
+**Requirements**: SLASH-01
+**Success Criteria** (what must be TRUE):
+  1. AI 通过 MCP `slash_command` 工具发送以 `/` 开头的命令字符串
+  2. 命令通过 `ICommandManager.ProcessCommand()` 在 Framework 线程上派发，采用 fire-and-forget 模式
+  3. 输入经过验证：命令必须以 `/` 开头、长度有限制、过滤特殊字符
+  4. 仅支持 Dalamud 注册命令，游戏原生命令返回明确错误提示
+**Plans**: TBD
+
+### Phase 14: 安全 IPC 调用
+**Goal**: AI 客户端能够通过 MCP 调用目标插件的 IPC 函数，传入参数并获取返回值，错误信息结构化可读
+**Depends on**: Phase 11
+**Requirements**: IPC-01
+**Success Criteria** (what must be TRUE):
+  1. AI 通过 MCP `invoke_plugin_ipc` 工具指定插件名 + 方法名 + 参数，调用目标插件的 IPC 函数
+  2. IPC 调用使用约定式命名 `{Name}.MCP.{Action}`，目标插件零 SDK 依赖，只需按约定暴露接口
+  3. IPC 调用在 Framework 线程上执行，支持基元类型和 JSON 字符串信封作为参数
+  4. 错误响应细分为 `ipc_missing`/`ipc_not_ready`/`ipc_type_mismatch`/`ipc_plugin_error` 等状态码
+  5. 现有 `unsafe.invoke.plugin-ipc` 逃生舱继续工作，新安全版本为推荐方式
+**Plans**: TBD
+
+### Phase 15: 数据回传
+**Goal**: 目标插件能够通过 IPC 向 DalamudMCP 推送结构化数据，AI 客户端通过 MCP 操作轮询获取这些数据
+**Depends on**: Phase 14
+**Requirements**: RELAY-01
+**Success Criteria** (what must be TRUE):
+  1. 目标插件通过 IPC SendMessage 推送结构化数据到 DalamudMCP，DalamudMCP 缓存在有界 Channel 中
+  2. AI 通过 MCP `plugin_data_poll` 操作按通道名轮询获取已缓存的数据
+  3. AI 通过 MCP `plugin_data_subscribe`/`plugin_data_unsubscribe` 操作管理数据通道的订阅生命周期
+  4. 目标插件卸载时，对应的 IPC 订阅自动退订，不会产生僵尸订阅或内存泄漏
+  5. 高频数据推送不会导致内存无限增长，有界 Channel 采用丢弃旧数据策略
+**Plans**: TBD
+
 ## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
+（Phase 13 和 14 可并行，但对同一规划流程按序执行）
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 1. 构建环境前提确认 | v1.0 | 1/1 | Complete | 2026-05-01 |
-| 2. SDK 版本升级 | v1.0 | 1/1 | Complete | 2026-05-01 |
-| 3. Manifest 与锁文件更新 | v1.0 | 1/1 | Complete | 2026-05-01 |
-| 4. 编译验证 | v1.0 | 1/1 | Complete | 2026-05-01 |
-| 5. 运行时加载与操作验证 | v1.0 | 1/1 | Complete | 2026-05-01 |
-| 6. IPC 桥接与 CLI 模式验证 | v1.0 | 1/1 | Complete | 2026-05-01 |
-| 7. 打包验证 | v1.0 | 1/1 | Complete | 2026-05-01 |
-| 8. 改中文界面 | v1.0 | 1/1 | Complete | 2026-05-01 |
-| 9. 可切换界面语言 | v1.0 | 3/3 | Complete | 2026-05-01 |
-| 10. 添加日志读取能力 | v1.0 | 3/3 | Complete | 2026-05-01 |
+| 11. IPC 基础设施提取 | v1.1 | 0/? | Not started | - |
+| 12. 插件重载操作 | v1.1 | 0/? | Not started | - |
+| 13. 斜杠命令调度 | v1.1 | 0/? | Not started | - |
+| 14. 安全 IPC 调用 | v1.1 | 0/? | Not started | - |
+| 15. 数据回传 | v1.1 | 0/? | Not started | - |
 
 ---
 
-*See `.planning/milestones/v1.0-ROADMAP.md` for full phase details.*
+*See `.planning/milestones/v1.0-ROADMAP.md` for completed milestone details.*
