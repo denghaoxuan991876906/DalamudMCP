@@ -21,7 +21,9 @@ internal static class PluginOperationExposurePolicy
     private static readonly HashSet<string> UnsafeOperationIds =
     [
         "unsafe.invoke.plugin-ipc",
-        "plugin.reload"
+        "plugin.reload",
+        "command.slash",
+        "plugin.ipc"
     ];
 
     public static bool IsActionOperation(string operationId)
