@@ -107,7 +107,11 @@ Plans:
   3. AI 通过 MCP `plugin_data_subscribe`/`plugin_data_unsubscribe` 操作管理数据通道的订阅生命周期
   4. 目标插件卸载时，对应的 IPC 订阅自动退订，不会产生僵尸订阅或内存泄漏
   5. 高频数据推送不会导致内存无限增长，有界 Channel 采用丢弃旧数据策略
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 15-01-PLAN.md — PluginDataRelayService 基础设施（接口、Channel 管理、IPC Provider、自动清理、DI 注册）
+- [ ] 15-02-PLAN.md — 3 个操作类（subscribe/unsubscribe/poll）+ 暴露策略 + 21 个单元测试
 
 ## Progress
 
