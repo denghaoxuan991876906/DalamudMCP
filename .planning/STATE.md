@@ -10,10 +10,10 @@ See: .planning/PROJECT.md (updated 2026-05-01)
 ## Current Position
 
 Milestone: v1.1 自动化测试桥接
-Phase: 11 of 15 (IPC 基础设施提取) — ◆ Complete
-Plan: 3 of 3
-Status: ✅ Phase 11 complete — All 3 plans executed. Ready for Phase 12.
-Last activity: 2026-05-01 — Plan 11-03 completed (test stubs extraction + unit tests)
+Phase: 12 of 15 (插件重载操作) — ◆ Ready to execute
+Plan: 0 of 2 (2 plans created)
+Status: ✅ Phase 12 planned — 2 plans (12-01, 12-02) ready for execution.
+Last activity: 2026-05-01 — Phase 12 plan-phase completed (2 plans, 1 wave)
 
 Progress: [▓▓░░░░░░░░░░░░░░] 10%
 

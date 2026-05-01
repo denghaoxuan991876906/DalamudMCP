@@ -57,10 +57,14 @@ Plans:
 **Requirements**: RELOAD-01
 **Success Criteria** (what must be TRUE):
   1. AI 通过 MCP `reload_plugin` 工具指定插件内部名称，触发该插件的 unload→reload 流程
-  2. 重载操作返回结构化响应，包含 `reload_initiated`/`ipc_missing`/`ipc_reloading` 等状态码
+  2. 重载操作返回结构化响应，包含 `reload_initiated`/`plugin_not_found`/`reload_failed`/`self_reload_blocked` 等状态码
   3. 重载操作在 Framework 线程上执行 `IExposedPlugin.Reload()`，不阻塞游戏主线程
   4. MCP 工具描述中包含等待建议，指导 AI 在重载后轮询 IPC 通道就绪状态
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 12-01-PLAN.md — 创建 PluginReloadOperation 操作（含 4 状态码响应 + 暴露策略注册）
+- [ ] 12-02-PLAN.md — 创建测试桩和单元测试（8 个测试覆盖全部状态码路径）
 
 ### Phase 13: 斜杠命令调度
 **Goal**: AI 客户端能够通过 MCP 发送 Dalamud 注册的斜杠命令到游戏内
@@ -106,7 +110,7 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 11. IPC 基础设施提取 | v1.1 | 3/3 | Complete ✅ | 2026-05-01 |
-| 12. 插件重载操作 | v1.1 | 0/? | Not started | - |
+| 12. 插件重载操作 | v1.1 | 0/2 | Planned | - |
 | 13. 斜杠命令调度 | v1.1 | 0/? | Not started | - |
 | 14. 安全 IPC 调用 | v1.1 | 0/? | Not started | - |
 | 15. 数据回传 | v1.1 | 0/? | Not started | - |
