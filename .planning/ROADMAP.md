@@ -63,8 +63,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 12-01-PLAN.md — 创建 PluginReloadOperation 操作（含 4 状态码响应 + 暴露策略注册）
-- [ ] 12-02-PLAN.md — 创建测试桩和单元测试（8 个测试覆盖全部状态码路径）
+- [x] 12-01-PLAN.md — 创建 PluginReloadOperation 操作（含 4 状态码响应 + 暴露策略注册）
+- [x] 12-02-PLAN.md — 创建测试桩和单元测试（12 个测试覆盖全部状态码路径）
 
 ### Phase 13: 斜杠命令调度
 **Goal**: AI 客户端能够通过 MCP 发送 Dalamud 注册的斜杠命令到游戏内
@@ -110,7 +110,7 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 11. IPC 基础设施提取 | v1.1 | 3/3 | Complete ✅ | 2026-05-01 |
-| 12. 插件重载操作 | v1.1 | 0/2 | Planned | - |
+| 12. 插件重载操作 | v1.1 | 2/2 | Complete ✅ | 2026-05-01 |
 | 13. 斜杠命令调度 | v1.1 | 0/? | Not started | - |
 | 14. 安全 IPC 调用 | v1.1 | 0/? | Not started | - |
 | 15. 数据回传 | v1.1 | 0/? | Not started | - |

@@ -7,7 +7,7 @@
 
 ### 插件重载
 
-- [ ] **RELOAD-01**: AI 能够通过 MCP 指定插件内部名称触发该插件的重载（unload → reload）
+- [x] **RELOAD-01**: AI 能够通过 MCP 指定插件内部名称触发该插件的重载（unload → reload）
 
 ### 跨插件 IPC 调用
 
@@ -54,7 +54,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RELOAD-01 | Phase 12 | Pending |
+| RELOAD-01 | Phase 12 | ✅ Complete |
 | IPC-01 | Phase 14 | Pending |
 | RELAY-01 | Phase 15 | Pending |
 | SLASH-01 | Phase 13 | Pending |
