@@ -1,178 +1,158 @@
-# Project Research Summary
+# 项目研究摘要
 
-**Project:** DalamudMCP
-**Milestone:** API Level 14 -> API Level 15 Migration
-**Domain:** FFXIV Dalamud plugin (MCP bridge)
-**Researched:** 2026-04-30
-**Confidence:** MEDIUM
+**项目:** DalamudMCP
+**领域:** FFXIV Dalamud 插件 MCP 桥接 — 自动化测试桥接（v1.1）
+**研究日期:** 2026-05-01
+**置信度:** HIGH
 
-## Executive Summary
+## 执行摘要
 
-研究一致表明，这并非典型的产品构建项目，而是一次**范围极其有限的平台兼容性迁移**。DalamudMCP 使用桥接/代理模式，将 Dalamud 依赖限制在单一项目 `src/DalamudMCP.Plugin/` 中，其他六个源项目均无 Dalamud 依赖。API 15 的三个已知破坏性变更（IChatGui XivChatType 重构、IClientState RowRef 迁移、ImRaii 移除 IEndObject）均不影响当前代码库。因此，迁移在配置层面仅需三个版本号变更：SDK、manifest API Level、packages.lock.json。
+DalamudMCP v1.1 是一个 Dalamud 插件的 MCP 桥接工具扩展，旨在为 AI 客户端提供跨插件 IPC 调用、插件重载、斜杠命令调度和数据回传四项自动化测试能力。该项目的核心洞察是：**所有新功能完全在现有技术栈内闭环实现，零新增 NuGet 依赖**。Dalamud API 15 的 `ICallGateProvider/Subscriber` 对称模型、`ICommandManager` 命令派发、`IExposedPlugin.Reload()` 重载机制以及 ModelContextProtocol v1.1.0 的通知能力，已经覆盖了全部功能需求。
 
-**关键建议：专注于验证而非重构。** 不要同时升级其他 NuGet 依赖，不要重构 DI 模式，不要将 `IDalamudPlugin` 改为 `IAsyncDalamudPlugin`。迁移应严格限定于 SDK 版本升级和运行时验证。最大的未解决问题并非 API 15 本身，而是 Patch 7.5 对 FFXIVClientStructs 布局的破坏性变更，这需要通过完整的运行时测试来覆盖。
+推荐方案是将四项新功能全部映射为 `[Operation]` 属性类，复用现有源生成器注册管道和命名管道协议层。关键架构决策是：**数据回传采用轮询模式（AI 主动 `plugin_data_poll`）而非 MCP Notification 推送**，这避免了修改协议层和 MCP 服务托管层，保持了架构一致性。构建顺序应遵循依赖链：先提取共享 IPC 网关基础设施，再按复杂度递增实现插件重载→斜杠命令→安全 IPC 调用→数据回传。
 
-**主要风险：** 构建环境指向错误运行时（DALAMUD_HOME 配置）、CI 无法验证插件编译（CI 解决方案排除 Plugin 项目）、同步-over-异步导致死锁（5 个已识别站点）。所有风险均可通过结构化验证清单来缓解。
+核心风险集中在五个方面：IPC 类型擦除与"无 SDK 依赖"约束的矛盾（需用基元类型信封模式）、插件重载后 IPC 通道断裂的级联失败（需监听生命周期事件自动退订）、Framework 线程亲和性违反导致游戏崩溃（所有新操作必须 `RunOnFrameworkThread`）、数据回传无界队列的内存泄漏（需有界 `Channel<T>`）、以及 `PluginOperationExposurePolicy` 硬编码分类的维护性问题（需扩展为属性驱动分类）。
 
-## Key Findings
+## 关键发现
 
-### Recommended Stack
+### 推荐技术栈
 
-迁移只需修改三个配置项。无需新增工具链依赖，无需修改 .NET 版本（仍为 `net10.0-windows7.0`），所有非 Dalamud 依赖（MemoryPack、ModelContextProtocol、xunit 等）均保持不变。
+零新增依赖。所有功能基于现有 Dalamud API 15 和 ModelContextProtocol v1.1.0 SDK 构建。关键能力包括：`ICallGateProvider/Subscriber` 用于跨插件 IPC 通信、`IExposedPlugin.Reload()` 用于插件重载、`ICommandManager.ProcessCommand()` 用于斜杠命令派发、`IFramework.RunOnFrameworkThread()` 用于线程封送、`McpServer.SendNotificationAsync` 用于 MCP 通知推送（备选方案）。
 
-**核心变更：**
-- **Dalamud.NET.Sdk**: 14.0.2 -> 15.0.0 — 提供 API 15 引用程序集
-- **DalamudMCP.json**: `DalamudApiLevel` 14 -> 15 — 声明运行时兼容性
-- **packages.lock.json**: 全部 7 个测试项目的锁文件需重新生成
+**核心技术：**
+- **Dalamud IPC CallGate** — 跨插件 RPC 和事件通信的对称模型，支持 `InvokeFunc`/`Subscribe`/`SendMessage` 三种模式
+- **源生成器 `[Operation]` 属性模式** — 新操作通过属性声明自动注册到 MCP/CLI/协议层，零手动注册代码
+- **`IExposedPlugin.Reload()`** — Dalamud 公开 API 中标准的插件重载方式，需在 Framework 线程执行
+- **`ICommandManager.ProcessCommand()`** — 仅支持 Dalamud 注册命令的路由，不支持游戏原生命令
+- **有界 `Channel<T>`** — 数据回传缓冲策略，防止内存无限增长
 
-**需注意：** 不同来源对 SDK 版本号存在分歧 — 项目计划假设 15.0.0，但 API 15 官方文档仍引用 14.0.2。需在实际可获取 SDK 版本时确认最终版本号。
+### 预期特性
 
-详细信息见 [STACK.md](STACK.md)。
+**必须有（核心能力）：**
+- **跨插件 IPC 调用（安全版）** — AI 通过结构化接口调用目标插件的 IPC 方法，已有 `unsafe.invoke.plugin-ipc` 底层逃生舱，v1.1 新增约定式安全版本
+- **数据回传（IPC → MCP）** — 目标插件通过 IPC SendMessage 推送数据，DalamudMCP 中继到 AI 客户端，完成自动化测试闭环
+- **插件重载** — AI 触发被测插件重载以重置状态，通过 `IExposedPlugin.Reload()` 在 Framework 线程执行
+- **斜杠命令调度** — AI 通过 `ICommandManager.ProcessCommand()` 派发 Dalamud 注册命令
 
-### Expected Features
+**应该有（差异化）：**
+- **约定式 IPC 接口注册中心** — 被测插件按 `{Name}.MCP.{Action}` 命名约定暴露 IPC 接口，零 SDK 依赖
+- **细粒度 IPC 错误分类** — 区分 `ipc_missing`/`ipc_not_ready`/`ipc_type_mismatch`/`ipc_plugin_error` 等状态
 
-这是兼容性迁移而非功能开发，因此功能集按"必须处理"和"可以考虑"分类：
+**推迟到 v2+：**
+- **IPC 事件 → MCP Notification 自动桥接** — 依赖链最长（需数据回传基础 + MCP 服务层修改），推迟到 MVP 稳定后
+- **插件自动发现** — PROJECT.md 明确 Out of Scope，v1.1 阶段 AI 需预先知道 callgate 名称
 
-**必须处理（Table Stakes）：**
-- SDK 版本升级（`.csproj` 头声明）
-- Manifest `DalamudApiLevel` 更新（14 -> 15）
-- packages.lock.json 重新生成
-- DALAMUD_HOME 指向 API 15 运行时
-- 确保发布 zip 中 manifest 不被仓库覆盖（API 15 新行为）
+### 架构方法
 
-**可考虑（Differentiators）：**
-- 使用新的 `IAsyncDalamudPlugin` 接口（不推荐在迁移中做）
-- 通过 `IDalamudPluginInterface` 作为 `IServiceProvider` 简化的 DI（不推荐在迁移中做）
-- 采用更干净的 `LogMessage` 事件（目前无需 chat 功能）
+所有四项新功能映射为 `[Operation]` 类，复用现有 `OperationProtocolDispatcher → GeneratedOperationInvoker → ExecuteAsync` 请求-响应管道。唯一的架构扩展是数据回传需要的 **推送通道**，通过 `PluginIpcDataRelayService`（有界 Channel 缓冲 + 轮询操作）解决，不修改协议层。关键重构是将 `IPluginIpcGateway/IPluginCallGateSubscriber` 从 `UnsafeInvokePluginIpcOperation` 内部提取为共享单例服务。
 
-**不包含（Anti-Features）：**
-- 不允许同时升级非 Dalamud 依赖
-- 不允许修改 IPC 协议
-- 不允许重构架构分层
+**主要组件：**
+1. **`IPluginIpcGateway`（提取）** — IPC 网关抽象，从内部类提取为共享服务，供所有跨插件操作注入使用
+2. **`PluginIpcDataRelayService`（新增）** — 数据中继缓冲服务，订阅 IPC 事件并缓冲到有界 Channel，供轮询操作读取
+3. **六个新 Operation 类** — `ReloadPluginOperation`、`SlashCommandOperation`、`InvokePluginIpcOperation`、`PluginDataSubscribeOperation`、`PluginDataPollOperation`、`PluginDataUnsubscribeOperation`
 
-详细信息见 [FEATURES.md](FEATURES.md)。
+### 关键陷阱
 
-### Architecture Approach
+1. **IPC 类型擦除 vs 无 SDK 依赖** — 目标插件可能使用自定义类型参数，但跨 AppDomain 无法加载对方类型。**防范：** 只支持基元类型和 JSON 字符串信封，文档明确约定
+2. **插件重载后 IPC 通道级联断裂** — 旧 subscriber 引用变成僵尸，新插件实例不会通知旧订阅者。**防范：** 监听插件生命周期事件自动退订，所有 IPC 调用包裹 try-catch 返回结构化错误
+3. **Framework 线程亲和性违反** — 在错误线程执行 IPC 调用可导致游戏崩溃。**防范：** 所有跨插件操作默认 `RunOnFrameworkThread`，遵循 `UnsafeInvokePluginIpcOperation` 已有模式
+4. **数据回传无界缓冲区** — 高频 IPC 事件导致内存持续增长。**防范：** 使用有界 `Channel<T>` + 丢弃旧数据策略
+5. **PluginOperationExposurePolicy 硬编码分类** — 新增操作时容易遗漏分类。**防范：** 为 `[Operation]` 属性添加分类元数据，源生成器自动生成分类
 
-架构分析确认：六个无 Dalamud 依赖的项目完全不受影响。唯一受影响的组件 `src/DalamudMCP.Plugin/` 的所有 20+ 操作和基础设施代码中，没有任何代码路径使用 API 15 变更涉及的服务接口。
+## 路线图影响
 
-**核心发现：**
-1. **分层隔离良好：** Framework、Protocol、CLI、Source Generator 均无 Dalamud 依赖
-2. **请求路径无变化：** CLI -> NamedPipe -> Dispatcher -> Operation 的数据流完全不受影响
-3. **线程编组模式不受影响：** 代码一致使用同步 `Func<T>` 重载而非异步 `Func<Task<T>>`，后者才是 API 15 标记废弃的
-4. **DI 组合无需变更：** 手动 DI 注册模式在 API 15 下仍然有效
+基于研究，建议以下阶段结构：
 
-详细信息见 [ARCHITECTURE.md](ARCHITECTURE.md)。
+### Phase 1: IPC 基础设施提取
+**理由:** 所有跨插件功能都依赖 IPC 网关抽象，必须先提取才能并行开发其他操作
+**交付:** 从 `UnsafeInvokePluginIpcOperation` 提取 `IPluginIpcGateway` / `IPluginCallGateSubscriber` 为共享单例服务，注册到 DI 容器，确保现有功能回归通过
+**涉及特性:** 跨插件 IPC 调用的前置条件
+**避免陷阱:** Pitfall 9（源生成器模式）、Pitfall 10（硬编码分类）—— 在此阶段扩展 `OperationCategory` 属性体系
+**需要研究:** 否——模式清晰，已由 `UnsafeInvokePluginIpcOperation` 验证
 
-### Critical Pitfalls
+### Phase 2: 插件重载操作
+**理由:** 最简单的跨插件功能（Low-Medium 复杂度），可立即验证新操作模式和线程封送模式
+**交付:** `ReloadPluginOperation` + 细粒度错误响应（`reload_initiated`/`ipc_missing`/`ipc_reloading`）+ MCP 工具描述中的等待建议
+**涉及特性:** 插件重载
+**避免陷阱:** Pitfall 2（IPC 断裂级联）—— 重载后 IPC 通道处理、Pitfall 7（缺乏完成信号）—— 结构化状态返回 + IsReady 轮询建议
+**需要研究:** 是——需确认 `IExposedPlugin.Reload()` 的运行时行为和线程要求
 
-1. **DALAMUD_HOME 指向错误运行时** — 如果构建环境仍指向 API 14 运行时，编译通过但运行时失败（MissingMethodException）。务必在升级 SDK 前验证 `DALAMUD_HOME` 路径确认为 API 15。
+### Phase 3: 斜杠命令调度
+**理由:** 功能独立且简单（Low 复杂度），与插件重载共享 Framework 线程封送模式
+**交付:** `SlashCommandOperation` + 输入验证（命令格式/长度/特殊字符过滤）+ fire-and-forget 模式
+**涉及特性:** 斜杠命令调度
+**避免陷阱:** Pitfall 4（Framework 线程阻塞）—— 异步 fire-and-forget 设计、Pitfall 12（注入风险）—— 输入过滤
+**需要研究:** 否——`ICommandManager.ProcessCommand()` 是已验证的公开 API
 
-2. **CI 无法验证迁移** — CI 解决方案（`DalamudMCP.CI.slnx`）明确排除了 Plugin 项目。迁移后的所有代码 CI 永不编译。必须建立完整的本地验证清单并有签署确认机制。
+### Phase 4: 安全 IPC 调用
+**理由:** 依赖 Phase 1 的共享 IPC 网关，是约定式 IPC 接口的基础
+**交付:** `InvokePluginIpcOperation`（安全版本）+ 细粒度 IPC 错误分类体系 + IPC 命名约定文档
+**涉及特性:** 跨插件 IPC 调用（安全版）、约定式 IPC 接口注册中心
+**避免陷阱:** Pitfall 1（类型擦除）—— 基元类型信封模式、Pitfall 3（线程亲和性）—— 默认 RunOnFrameworkThread、Pitfall 5（约定矛盾）—— 先定义约定再实现、Pitfall 8（异常分类粗糙）—— 扩展错误码
+**需要研究:** 是——`ICallGateSubscriber` 泛型参数限制需运行时验证，需确认基元类型信封在所有场景下的可行性
 
-3. **同步-over-异步死锁** — 代码库存在 5 个 `.GetAwaiter().GetResult()` 站点，其中 `PluginEntryPoint.cs:61` 在构造器中阻塞等待。API 15 可能收紧线程安全检查，使这块现有技术债务暴露为运行时死锁。
+### Phase 5: 数据回传
+**理由:** 最复杂的功能（Medium-High），依赖 IPC 网关（Phase 1）+ IPC 调用基础设施（Phase 4）+ 订阅模式
+**交付:** `PluginIpcDataRelayService` + `PluginDataSubscribeOperation` + `PluginDataPollOperation` + `PluginDataUnsubscribeOperation` + 插件生命周期监听
+**涉及特性:** 数据回传（IPC → MCP）
+**避免陷阱:** Pitfall 2（生命周期退订）—— 监听插件卸载事件、Pitfall 6（连接管理）—— 专门的订阅管理器、Pitfall 11（背压）—— 有界 Channel + 丢弃策略
+**需要研究:** 是——`ICallGateSubscriber.Subscribe` 的运行时行为和泛型限制需验证
 
-4. **FFXIVClientStructs 布局变更** — 虽然有明确的项目范围声明（不在本次迁移覆盖），但使用 unsafe 指针的操作（AddonInput、InteractWithTarget 等）依赖于 Patch 7.5 可能改变的内存布局。这是最高风险的运行时问题。
+### 阶段排序理由
 
-5. **Protocol 版本失配** — SDK 升级后 packages.lock.json 重新生成可能导致 MemoryPack 版本在 CLI 与 Plugin 之间不一致，导致二进制反序列化静默失败。
+- **依赖链驱动：** Phase 1 是其他所有跨插件功能的前置条件（IPC 网关提取）
+- **复杂度递增：** 重载（简单）→ 斜杠命令（简单）→ IPC 调用（中等）→ 数据回传（复杂），降低风险
+- **陷阱隔离：** 每个阶段有明确的陷阱关注点，不会相互干扰
+- **线程封送模式在 Phase 2 建立：** 重载操作最适合建立 `RunOnFrameworkThread` 默认封送模式，后续阶段复用
 
-详细信息见 [PITFALLS.md](PITFALLS.md)。
+### 研究标记
 
-## Implications for Roadmap
+**需要深入研究（`/gsd research-phase`）：**
+- **Phase 2:** `IExposedPlugin.Reload()` 的运行时行为、Framework 线程要求的精确边界
+- **Phase 4:** `ICallGateSubscriber<T1..T8, TRet>` 泛型参数的运行时限制、基元类型信封在 MessagePack 序列化下的行为
+- **Phase 5:** `ICallGateSubscriber.Subscribe` 回调线程模型、IPC 事件订阅的泛型签名约束
 
-基于综合研究，建议按以下 Phases 组织迁移：
+**标准模式（跳过研究）：**
+- **Phase 1:** 模式清晰，代码提取重构，已由现有代码验证
+- **Phase 3:** `ICommandManager.ProcessCommand()` 是简单公开 API，无需研究
 
-### Phase 0: 前提条件验证
-**Rationale:** 在研究过程中发现的阻塞性问题：SDK 版本不确定性、DALAMUD_HOME 配置要求、CI 无法验证。这些问题必须在任何代码变更前确认。
-**Delivers:** 可操作的迁移环境（已验证的 API 15 DALAMUD_HOME、确认的 SDK 版本、本地验证清单）
-**Addresses:** 基础设施准备
-**Avoids:** 陷阱 6 (DALAMUD_HOME 错误)、陷阱 7 (CI 无法验证)
+## 置信度评估
 
-### Phase 1: SDK 升级与构建基础设施
-**Rationale:** 这是所有后续工作的基础。三个配置变更（SDK、manifest、lock files）必须首先完成并验证编译通过。
-**Delivers:** 可通过 SDK/API 15 编译的代码库
-**Addresses:** 表属性任务（SDK 版本、Manifest API Level、packages.lock.json 更新）
-**Avoids:** 陷阱 5 (Manifest 不匹配)、陷阱 8 (MemoryPack 版本失配)
-**可能需要研究：** 如果 SDK 版本不是假设的 15.0.0，需在恢复后确认实际版本并相应调整文档。
+| 领域 | 置信度 | 备注 |
+|------|--------|------|
+| 技术栈 | HIGH | 零新增依赖，所有 API 均有官方文档和代码库验证 |
+| 特性 | HIGH | Dalamud IPC CallGate 模型和项目需求明确，已验证可行性 |
+| 架构 | HIGH | 所有新功能映射为 [Operation] 类，源生成器模式已验证，仅数据回传需架构扩展（有先例） |
+| 陷阱 | HIGH | 代码库审计+官方文档双验证，5 个 Critical 陷阱均有明确防范策略 |
 
-### Phase 2: API 兼容性审计
-**Rationale:** API 15 的三个破坏性变更虽然都不影响当前代码路径，但仍需系统审计所有 IClientState 注入点（20+ 操作类）以确保没有遗漏。
-**Delivers:** 确认所有代码路径与 API 15 兼容
-**Addresses:** 代码适配（如需要）
-**Avoids:** 陷阱 1 (IClientState 静默损坏)、陷阱 2 (XivChatType 语义变化)、陷阱 9 (NuGet 依赖移除)
-**不需要研究：** 标准模式，代码审计和经验证的三次变更即可。
+**整体置信度:** HIGH
 
-### Phase 3: 线程安全性加固（可选但推荐）
-**Rationale:** 5 个 `.GetAwaiter().GetResult()` 站点是已知的技术债务。API 15 可能暴露这些问题导致死锁。虽然严格来说不是迁移必需品，但在同一里程碑内解决的成本远低于事后修复。
-**Delivers:** 消除同步-over-异步死锁风险
-**Addresses:** 线程安全改进
-**Avoids:** 陷阱 4 (同步-over-异步死锁)
-**可能需要研究：** 如果转换 `PluginEntryPoint.cs:61` 的模式不明确（从构造器阻塞改为异步工厂模式），可能需要浅研究最佳方案。
+### 待解决的差距
 
-### Phase 4: 运行时验证
-**Rationale:** 编译成功不等于迁移完成。真正的验证发生在 FFXIV + API 15 Dalamud 运行时：加载、操作、IPC、unsafe 操作。这是四个 Phase 中工作量最大的。
-**Delivers:** 确认迁移完成的信心
-**Addresses:** 所有 20+ 操作的功能正确性、IPC 往返通信、Patch 7.5 兼容性
-**Avoids:** 陷阱 10 (FFXIVClientStructs 布局不匹配)
-**可能需要研究：** 如果 FFXIVClientStructs 布局问题被触发，则需要在迁移之外额外规划 struct offset 修复的研究 Phase。
+- **IPC 泛型签名限制：** `ICallGateSubscriber` 最多支持 8 个泛型参数 + 1 个返回值，但运行时构造泛型实例时的类型加载行为需在 Phase 4 实现时验证
+- **插件重载完成信号：** Dalamud 没有公开的"插件重载完成"事件，AI 端只能通过轮询 IPC 通道就绪状态确认——这在 Phase 2 需要详细设计
+- **数据回传 IPC 订阅线程模型：** `ICallGateSubscriber.Subscribe` 的回调线程是目标插件线程，需确认是否需要 Framework 线程封送——Phase 5 实现时需测试
+- **`ICommandManager` vs `IChatGui` 精确行为：** 斜杠命令通过 ICommandManager 还是 IChatGui 执行在边界情况（如 `/xlreload` 是否可通过 ICommandManager 派发）需 Phase 3 运行时确认
 
-### Phase 排序理由
+## 来源
 
-1. **Phase 0 在 Phase 1 之前** — 没有可用的 API 15 DALAMUD_HOME 和 SDK 版本确认就开始升级是盲目的，这是 PITFALLS.md 中最高优先级的问题。
-2. **Phase 1 在 Phase 2 之前** — 必须先升级 SDK 才能编译与测试 API 兼容性。
-3. **Phase 2 在 Phase 3 之前** — API 兼容性审计优先于线程安全加固，因为 API 15 可能引入的兼容性问题必须先排除。
-4. **Phase 4 在最后** — 运行时验证需要前三个 Phase 全部完成。
-5. **Phase 3 可选但推荐** — 本质上属于重构范畴，PITFALLS.md 和 CONCERNS.md 都已识别此风险。建议在迁移里程碑中安排，但如果不是时间紧迫可以降级。
+### 主要来源（HIGH 置信度）
+- Dalamud 官方 API 文档（dalamud.dev）— `ICallGateProvider/Subscriber`、`ICommandManager`、`IChatGui`、`IFramework`、`IExposedPlugin` 接口验证
+- DalamudMCP v1.0 源码审计 — `UnsafeInvokePluginIpcOperation`、`OperationProtocolDispatcher`、源生成器模式、`PluginMcpServerController`
+- ModelContextProtocol v1.1.0 NuGet — `SendNotificationAsync` 能力确认
+- PROJECT.md — 项目约束（无 SDK 依赖、不自动等待就绪、不实现插件自动发现）
 
-### Research Flags
+### 次要来源（MEDIUM 置信度）
+- Dalamud PluginLoadReason 枚举验证 — `Reload = 8` 值存在，重载是官方支持的加载原因
+- Dalamud IPC 示例代码和社区模式 — 订阅模式、消息推送的使用方式
+- `ICommandManager` API 行为 — 仅支持 Dalamud 注册命令，不支持游戏原生命令
 
-可能需要深入研究的 Phase：
-- **Phase 0:** SDK 版本不确定性需要在实际环境中确认。官方文档引用 14.0.2，但项目计划使用 15.0.0。需 `dotnet nuget list source` 确认。
-- **Phase 3:** 如果 `PluginEntryPoint.cs` 的同步构造成分需要重构为异步工厂模式，可能需要浅研究以确定最佳方案。
-- **Phase 4:** 如果 Patch 7.5 的 FFXIVClientStructs 变更影响 unsafe 操作，需要额外研究 struct offset 变更。
-
-可使用标准模式的 Phase（无需研究）：
-- **Phase 1:** SDK 版本升级、manifest 更新、lock file 重新生成都是标准操作。
-- **Phase 2:** API 审计是常规代码审查工作，无需额外研究。
-
-## Confidence Assessment
-
-| Area | Confidence | Notes |
-|------|------------|-------|
-| Stack | HIGH | NuGet 确认 `Dalamud.NET.Sdk/15.0.0` 和 `DalamudPackager/15.0.0` 存在。API 15 文档确认 .NET 10.0、破坏性变更。唯一的低置信点是 SDK 版本号在文档间不一致。 |
-| Features | MEDIUM | API 15 尚未最终发布。破坏性变更清单可靠（官方文档），但当前代码库对这些变更的零影响评估基于代码审计，置信度高。SDK 版本号需要最终确认。 |
-| Architecture | MEDIUM | 代码审计（`src/DalamudMCP.Plugin/` 的全面分析）置信度高。但 API 15 是否引入超出文档列的额外接口变更（尤其是 IClientState 未公开的变更）存在不确定性。 |
-| Pitfalls | MEDIUM | API 13->14 的历史迁移模式验证可靠。5 个同步-over-异步站点的审计基于实际代码阅读（高置信度）。FFXIVClientStructs 的 Patch 7.5 影响是基于过去经验推断的。 |
-
-**总体置信度：MEDIUM**
-
-置信度评级为 MEDIUM 的主要原因是：API 15 尚未最终发布，SDK/文档间的版本号存在分歧，以及 FFXIVClientStructs 布局变更的未知影响。代码审计层面的发现置信度高，但运行时的意外行为可能性无法完全排除。
-
-### Gaps to Address
-
-- **SDK 最终版本号：** 文档引用 14.0.2（可能是文档未更新），项目计划假设 15.0.0。需在 Phase 0 通过 NuGet 源确认。如果 `Dalamud.NET.Sdk/15.0.0` 不可用，可能需要使用 `14.0.2` 作为过渡 — 这不会影响 API Level（manifest 仍声明 15，只要 DALAMUD_HOME 指向 API 15 运行时）。
-
-- **FFXIVClientStructs 具体变更清单：** API 15 文档未列出 FFXIVClientStructs 的独立破坏性变更。Patch 7.5 通常每季度带来 struct 布局变更。无法从文档预防，只能通过 Phase 4 的运行时测试发现。
-
-- **第三方 IPC 插件兼容性：** Lifestream、Vnavmesh 等插件的 API 15 更新时间表未知。DalamudMCP 的操作如果依赖这些插件，需要在 Phase 4 中测试并加入降级逻辑。
-
-## Sources
-
-### Primary (HIGH confidence)
-- 官方 API 15 文档: https://dalamud.dev/versions/v15/ — 确认 SDK v15.0.0、Packager v15.0.0、API Level 15、.NET 10.0、三个破坏性变更
-- NuGet API: `Dalamud.NET.Sdk/15.0.0` 和 `DalamudPackager/15.0.0` 存在（MIT/EUPL-1.2 许可证）
-- 代码库审计: `src/DalamudMCP.Plugin/` 的全面源代码分析
-
-### Secondary (MEDIUM confidence)
-- API 15 API 文档: `IDalamudPluginInterface`、`IClientState`、`IFramework` 的 API 15 版本参考 — 确认接口签名未受影响的属性
-- API 15 特性参考: `XivChatRelationKind` 枚举文档 — 新功能参考
-- Dalamud 更新 FAQ: https://dalamud.dev/faq/updates/ — API 版本变更流程
-- API 13->14 变更日志: https://dalamud.dev/versions/v14/ — 历史迁移模式验证
-
-### Tertiary (LOW confidence)
-- 网络搜索结果（"Dalamud v15 breaking changes" 多次查询）— 搜索结果在 API 15 存在性上相互矛盾
-- Dalamud 插件开发者社区知识 — 来自多个网络搜索结果的聚合
+### 待验证（需运行时确认）
+- `IExposedPlugin.Reload()` 在 Framework 线程上的精确行为和完成时机
+- `ICallGateSubscriber.Subscribe` 回调的线程上下文
+- `/xlreload` 是否可通过 `ICommandManager.ProcessCommand()` 派发（研究建议是使用 `IChatGui.Print`）
+- IPC 泛型参数在跨 AppDomain 反射构造时的类型加载行为
 
 ---
-*Research completed: 2026-04-30*
-*Ready for roadmap: yes*
+*研究完成：2026-05-01*
+*路线图就绪：是*

@@ -1,458 +1,631 @@
-# Architecture Research: Dalamud API 15 Migration Impact
+# Architecture Research: DalamudMCP v1.1 自动化测试桥接
 
-**Domain:** Dalamud plugin migration (API Level 14 to 15)
-**Researched:** 2026-04-30
-**Confidence:** MEDIUM (API 15 is pre-release, not yet finalized per dalamud.dev)
+**Domain:** Dalamud 插件跨进程 IPC + MCP 桥接
+**Researched:** 2026-05-01
+**Overall confidence:** HIGH
 
 ## Executive Summary
 
-The DalamudMCP architecture has a **favorable layering** for this migration: six of seven source projects have zero Dalamud dependencies. Only `src/DalamudMCP.Plugin/` touches the Dalamud API surface. API 15's documented breaking changes (`IChatGui` XivChatType split, `IClientState` RowRefs, `IFramework` async-deprecation) **do not affect any code path in the current codebase** at the API level. The migration's architectural impact is therefore limited to:
+DalamudMCP v1.1 新增四项功能——插件重载、跨插件 IPC 调用、数据回传、斜杠命令调度——均可融入现有架构，**不需要新增项目或重构层次边界**。关键发现：
 
-1. **SDK version pinning** (`Dalamud.NET.Sdk` 14.0.2 -> 15.0.0)
-2. **Manifest metadata** (`DalamudApiLevel` 14 -> 15, plus manifest accuracy requirement)
-3. **Build infrastructure** (new reference assemblies in `DALAMUD_HOME`)
-4. **Potential FFXIVClientStructs struct layout changes** (Patch 7.5, out of scope per PROJECT.md but carries real runtime risk)
-
-No component boundaries, IPC protocols, operation models, or DI composition patterns need structural redesign for API 15 compliance.
+1. **已有先例**：`UnsafeInvokePluginIpcOperation` 已通过反射实现跨插件 IPC 调用，其 `IPluginIpcGateway` / `IPluginCallGateSubscriber` 抽象可直接复用和扩展。
+2. **操作模型完全适配**：四项新功能都映射为 `[Operation]` 类，源生成器自动注册到 `GeneratedOperationRegistry`、`GeneratedOperationInvoker`、`GeneratedMcpTools`，无需修改生成器。
+3. **协议层零变更**：`ProtocolContract` 的请求/响应信封和 `MemoryPack` 序列化无需任何改动。
+4. **数据回传是新模式**：现有架构是 AI→Plugin（请求-响应），数据回传需要 Plugin→AI（推送/订阅），这是唯一的架构扩展点。
 
 ---
 
-## Architecture Overview: API 15 Impact Per Component
+## 现有架构概览
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                    PURE LAYERS (No perubahan needed)                   │
-│  Tidak ada Dalamud API reference atau ketergantungan pada API Level  │
-│                                                                      │
-│  ┌────────────────────┐  ┌──────────────────────┐                    │
-│  │ DalamudMCP.Framework│  │ DalamudMCP.Protocol  │                    │
-│  │ (abstractions, attr)│  │ (named pipe IPC)     │                    │
-│  └────────────────────┘  └──────────────────────┘                    │
-│                                                                      │
-│  ┌────────────────────┐  ┌──────────────────────┐                    │
-│  │ DalamudMCP.Framework│  │ DalamudMCP.Framework  │                    │
-│  │ .Cli (CLI engine)   │  │ .Mcp (MCP binding)    │                    │
-│  └────────────────────┘  └──────────────────────┘                    │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐    │
-│  │ DalamudMCP.Framework.Generators (Roslyn source generator)     │    │
-│  │ (targets netstandard2.0, tidak ada Dalamud dependency)         │    │
-│  └──────────────────────────────────────────────────────────────┘    │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐    │
-│  │ DalamudMCP.Cli (standalone binary, zero Dalamud dependency)    │    │
-│  │ Hanya bergantung pada Framework + Protocol layers              │    │
-│  └──────────────────────────────────────────────────────────────┘    │
-└──────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                     AI Client (Claude, etc.)                       │
+│                     MCP Protocol / CLI / HTTP                       │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
+                 ┌─────────────▼─────────────┐
+                 │   DalamudMCP.Cli 进程      │
+                 │   (CLI / MCP Host)         │
+                 │                            │
+                 │   RemoteMcpToolService ──►│── NamedPipeProtocolClient
+                 │   RemoteCliInvoker    ──►│── NamedPipeProtocolClient
+                 └─────────────┬─────────────┘
+                               │ Named Pipe (MemoryPack)
+                 ┌─────────────▼─────────────┐
+                 │   DalamudMCP.Plugin 进程   │
+                 │   (Dalamud 插件内)          │
+                 │                            │
+                 │   NamedPipeProtocolServer   │
+                 │         │                  │
+                 │   OperationProtocolDispatcher │
+                 │         │                  │
+                 │   GeneratedOperationInvoker │
+                 │         │                  │
+                 │   [Operation] 类实例          │
+                 │   (各 Operation 通过 DI 注入  │
+                 │    Dalamud 服务)              │
+                 └─────────────────────────────┘
+```
+
+### 组件分层
+
+| 项目 | 职责 | Dalamud 依赖 |
+|------|------|-------------|
+| `DalamudMCP.Framework` | 操作模型抽象（`IOperation<T,R>`、属性、`OperationContext`） | 无 |
+| `DalamudMCP.Protocol` | 命名管道 IPC、协议信封、MemoryPack 序列化 | 无 |
+| `DalamudMCP.Framework.Mcp` | MCP 工具绑定辅助 | 无（依赖 ModelContextProtocol NuGet） |
+| `DalamudMCP.Framework.Cli` | CLI 调用辅助 | 无 |
+| `DalamudMCP.Framework.Generators` | Roslyn 源生成器 | 无（netstandard2.0） |
+| `DalamudMCP.Cli` | CLI 二进制入口、MCP 服务托管 | 无 |
+| `DalamudMCP.Plugin` | Dalamud 插件主体、操作实现、服务注册 | **是** |
+
+### 数据流：请求-响应模式
+
+```
+AI Client ──► MCP Tool Call ──► RemoteMcpToolService.CallToolAsync()
                                     │
-                                    │ (no changes needed)
-                                    ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                  AFFECTED LAYER (Perubahan terbatas)                   │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐    │
-│  │              DalamudMCP.Plugin                                  │    │
-│  │                                                                │    │
-│  │  Changes required:                                              │    │
-│  │   1. SDK: Dalamud.NET.Sdk/14.0.2 -> 15.0.0 (csproj)           │    │
-│  │   2. Manifest: DalamudApiLevel 14 -> 15 (DalamudMCP.json)      │    │
-│  │   3. packages.lock.json: regenerate                            │    │
-│  │   4. Jika DALAMUD_HOME diupdate, pakai referensi API 15         │    │
-│  │                                                                │    │
-│  │  No code changes needed:                                        │    │
-│  │   - Tidak ada penggunaan IChatGui (XivChatType tidak relevan)   │    │
-│  │   - Tidak ada subscription ZoneInit (RowRefs tidak relevan)     │    │
-│  │   - Tidak ada ActiveFestivals/AktifFestivalPhases               │    │
-│  │   - RunOnFrameworkThread hanya pakai overload sync (Func<T>)    │    │
-│  │   - Tidak ada penggunaan async Func<Task<T>> overloads          │    │
-│  └──────────────────────────────────────────────────────────────┘    │
-└──────────────────────────────────────────────────────────────────────┘
+                                    ├── ProtocolOperationRequestFactory.CreateFromMcp()
+                                    ├── IProtocolOperationClient.InvokeAsync(operationId, payload)
+                                    │       │
+                                    │       └── NamedPipeProtocolClient 发送 ProtocolRequestEnvelope
+                                    │
+                          Named Pipe IPC ──► NamedPipeProtocolServer
+                                                    │
+                                              OperationProtocolDispatcher.DispatchAsync()
+                                                    │
+                                              GeneratedOperationInvoker.TryInvoke()
+                                                    │
+                                              Operation.ExecuteAsync()
+                                                    │
+                                              ProtocolResponseEnvelope 返回
 ```
+
+### 关键抽象
+
+| 抽象 | 位置 | 角色 |
+|------|------|------|
+| `IOperation<TRequest, TResult>` | Framework | 操作接口，所有操作必须实现 |
+| `[Operation]` + `[McpTool]` + `[CliCommand]` | Framework | 属性声明，由源生成器扫描 |
+| `OperationDescriptor` | Framework | 编译期生成的操作描述（参数、可见性、MCP 名称） |
+| `GeneratedOperationInvoker` | Generated | 源生成器生成的分发器，按 OperationId 路由 |
+| `IOperationInvoker` | Framework | 运行时调用接口 |
+| `OperationProtocolDispatcher` | Plugin | 命名管道请求→操作调用的调度器 |
+| `ProtocolContract` | Protocol | 信封序列化/反序列化 |
+| `PluginOperationExposurePolicy` | Plugin | 控制哪些操作对 MCP/CLI 可见 |
+| `IPluginIpcGateway` | Plugin.Operations | Dalamud IPC 网关抽象（已有 UnsafeInvokePluginIpcOperation 中） |
 
 ---
 
-## Component Boundary Analysis
+## 新功能架构映射
 
-### Components With Zero API 15 Impact
+### 功能 1：插件重载
 
-| Component | Path | Reason |
-|-----------|------|--------|
-| `DalamudMCP.Framework` | `src/DalamudMCP.Framework/` | Pure .NET abstractions. No Dalamud dependency. |
-| `DalamudMCP.Protocol` | `src/DalamudMCP.Protocol/` | Named pipe IPC + MemoryPack. No Dalamud dependency. |
-| `DalamudMCP.Framework.Cli` | `src/DalamudMCP.Framework.Cli/` | CLI argument parsing engine. No Dalamud dependency. |
-| `DalamudMCP.Framework.Mcp` | `src/DalamudMCP.Framework.Mcp/` | MCP binding utility. Depends on `ModelContextProtocol` NuGet. No Dalamud. |
-| `DalamudMCP.Framework.Generators` | `src/DalamudMCP.Framework.Generators/` | Roslyn source generator. Targets `netstandard2.0`. No Dalamud. |
-| `DalamudMCP.Cli` | `src/DalamudMCP.Cli/` | Standalone executable. No Dalamud dependency by design (proxy pattern). |
-| All test projects (8) | `tests/` | Test projects mock/fake Dalamud services. May need interface signature updates but no logical changes. |
+**映射到现有架构：** 新增一个 `[Operation]` 类。
 
-### Component With Targeted API 15 Impact
+| 组件 | 类型 | 变更 |
+|------|------|------|
+| `ReloadPluginOperation` | **新增** | `DalamudMCP.Plugin/Operations/ReloadPluginOperation.cs` |
+| `IPluginManager` | **引用** | Dalamud 注入服务，仅 API 9+ 可用 |
 
-| Component | Path | Impact | Details |
-|-----------|------|--------|---------|
-| `DalamudMCP.Plugin` | `src/DalamudMCP.Plugin/` | Minimal — SDK + manifest only | See detailed analysis below |
-
-#### Detailed: `src/DalamudMCP.Plugin/` Impact Map
-
-| File | API Usage | API 15 Change | Affected? | Action |
-|------|-----------|--------------|-----------|--------|
-| `DalamudMCP.Plugin.csproj` | Sdk="Dalamud.NET.Sdk/14.0.2" | Sdk version 14 -> 15 | **YES** | Change to `15.0.0` |
-| `DalamudMCP.json` | `DalamudApiLevel: 14` | Must be 15 | **YES** | Change to 15 |
-| `PluginEntryPoint.cs` | Constructor injection of 11+ Dalamud services | `IDalamudPluginInterface` now implements `IServiceProvider` | NO, but option | No change required; IServiceProvider is additive |
-| `PluginEntryPoint.cs` | `pluginInterface.UiBuilder.Draw/OpenConfigUi` | No change | NO | None |
-| `PluginEntryPoint.cs` | `pluginInterface.AssemblyLocation` | No change | NO | None |
-| `PluginCompositionRoot.cs` | Manual DI registration of each service | No change to DI resolution | NO | None |
-| `PluginServiceCollectionExtensions.cs` | Registers singleton services | No change | NO | None |
-| `PluginMcpServerController.cs` | Process management, HTTP probing | No Dalamud API dependencies | NO | None |
-| `PluginCliPathResolver.cs` | File path probing | No Dalamud API dependencies | NO | None |
-| `OperationProtocolDispatcher.cs` | Command dispatch | No Dalamud API dependencies | NO | None |
-| `PluginOperationExposurePolicy.cs` | Risk tier definitions | No Dalamud API dependencies | NO | None |
-| `PluginGeneratedOperationRegistration.cs` | Source-generated registration | No Dalamud API dependencies | NO | None |
-| All Operations (20+) | `IClientState` for `.ClientLanguage` and `.IsLoggedIn` | No change to these properties | NO | None |
-| All Operations (20+) | `IFramework.RunOnFrameworkThread` | Only async overloads deprecated; code uses `Func<T>` | NO | None |
-| All Operations (20+) | `IFramework.IsInFrameworkUpdateThread` | No change | NO | None |
-| All Operations (20+) | `IObjectTable`, `ITargetManager`, `IGameGui`, etc. | No reported changes in API 15 | NO | None |
-| `PluginConfigWindow.cs` | ImGui rendering | No Dalamud API dependencies | NO | None |
-
----
-
-## Data Flow Implications
-
-### Request Path: No Change
-
+**数据流：**
 ```
-CLI User Input  ──►  NamedPipeProtocolClient  ──►  NamedPipeProtocolServer
-                                                         │
-                                                    OperationProtocolDispatcher
-                                                         │
-                                                    IOperationInvoker.TryInvoke
-                                                         │
-                                                    GeneratedOperationInvoker
-                                                         │
-                                                    Specific Operation
-                                                         │
-                                                    (reads FFXIV state via Dalamud APIs)
-                                                         │
-                                                    Response ──► Client
+AI ──► MCP tool: reload_plugin ──► OperationProtocolDispatcher
+                                        │
+                                  ReloadPluginOperation.ExecuteAsync()
+                                        │
+                                  IFramework.RunOnFrameworkThread()
+                                        │
+                                  IDalamudPluginInterface.InstalledPlugins
+                                        │
+                                  找到目标插件 → 调用 Reload()
+                                        │
+                                  返回 ReloadPluginResult
 ```
 
-The request flow is completely unaffected by API 15. The IPC protocol (`ProtocolContract`), dispatcher, source-generated invoker, and operation model have zero Dalamud dependencies. The Dalamud-specific code only exists within each individual operation's `CreateDalamudExecutor` factory method and its `ReadCurrentCore` / `SendEventCore` / etc. static methods.
+**关键设计决策：**
 
-### Data Type Flow: No Change
+1. **使用 `IDalamudPluginInterface.InstalledPlugins`**（而非 `IPluginManager`）。`IExposedPlugin` 有 `Reload()` 方法和 `IsLoaded` 属性，这是 Dalamud 标准的重载方式。
+2. **必须在 Framework 线程执行**：`IExposedPlugin.Reload()` 需要 Dalamud Framework 线程上下文。使用 `IFramework.RunOnFrameworkThread()` 尼古。
+3. **不自动等待就绪**：按 PROJECT.md 约束，重载触发后立即返回，AI 端决定延迟。
 
-The data flowing through the system is:
-1. Operation reads raw game state via Dalamud APIs / unsafe structs
-2. Transforms into `[MemoryPackable]` snapshot records
-3. Serialized via MemoryPack over named pipe
-
-API 15 does not change any Dalamud service return types that are consumed by these operations (at least for the properties actually accessed).
-
-### Marshal-to-Game-Thread Pattern: No Change
-
-The codebase uses a consistent pattern:
+**操作声明示例：**
 ```csharp
-if (framework.IsInFrameworkUpdateThread)
-    return ReadCurrentCore(clientState, ...);
-return await framework.RunOnFrameworkThread(() => ReadCurrentCore(clientState, ...))
-    .ConfigureAwait(false);
-```
-
-This pattern uses the synchronous `RunOnFrameworkThread<T>(Func<T>)` overload, which is NOT deprecated in API 15. Only the async `Func<Task<T>>` and `Func<Task>` overloads are deprecated.
-
-**If the deprecation warnings are emitted at compile time when targeting API 15** (possible but not confirmed), the code should remain warning-free since the sync overloads are used consistently.
-
----
-
-## DI Composition Analysis
-
-### Current State (API 14)
-
-The plugin uses a **manual DI composition** pattern:
-1. `PluginEntryPoint` constructor receives services via Dalamud's built-in IoC (constructor injection)
-2. `PluginCompositionRoot.CreateFromDalamud()` receives all services explicitly (11+ parameters)
-3. `PluginServiceCollectionExtensions.BuildDalamudServiceProvider()` registers each as a singleton in `Microsoft.Extensions.DependencyInjection`
-4. A nested `ServiceProvider` is built for operations and infrastructure
-
-### API 15 Implications
-
-**No change required.** Looking at the API 15 docs:
-
-- `IDalamudPluginInterface` now implements `IServiceProvider` (additive, not breaking)
-- Constructor injection via Dalamud's IoC still works (existing patterns continue)
-- Manual service registration in `PluginServiceCollectionExtensions` is unaffected
-
-**Optional improvement** (not required for migration, but worth noting):
-Since `IDalamudPluginInterface` is now an `IServiceProvider`, the 11+ parameter constructor of `PluginEntryPoint` could theoretically be reduced to just `IDalamudPluginInterface`, with other services resolved via `pluginInterface.GetRequiredService<T>()`. However, this is a refactoring opportunity, not a migration requirement.
-
-**Decision:** Do not restructure DI during API 15 migration. The current pattern works and is more explicit about dependencies.
-
----
-
-## IPC Layer Analysis
-
-### Current State
-
-```
-NamedPipeProtocolServer (Plugin side)
-    │
-    ├── Accepts connections
-    ├── Reads length-prefixed MemoryPack frames
-    ├── Dispatches to OperationProtocolDispatcher
-    └── Returns ProtocolResponseEnvelope
-
-NamedPipeProtocolClient (CLI side)
-    │
-    ├── Connects to pipe
-    ├── Sends ProtocolRequestEnvelope
-    ├── Receives ProtocolResponseEnvelope
-    └── Returns deserialized result
-```
-
-### API 15 Implications: NONE
-
-The IPC layer (`src/DalamudMCP.Protocol/`) has zero Dalamud dependencies. It depends only on:
-- `MemoryPack` (NuGet) — version stays at 1.21.4
-- `Microsoft.Extensions.DependencyInjection.Abstractions` — version unchanged
-- Standard .NET types (`System.IO.Pipes`, `System.IO.MemoryStream`, etc.)
-
-No changes needed. The IPC protocol is versioned internally (`ProtocolContract` v2.0.0) with a major-version compatibility check, independent of Dalamud API Level.
-
----
-
-## Operation Model Analysis
-
-### Current State
-
-```
-[Operation("player.context")]
-[CliCommand("player", "context")]
-[McpTool("get_player_context")]
-public sealed partial class PlayerContextOperation
-    : IOperation<PlayerContextOperation.Request, PlayerContextSnapshot>
+[Operation("plugin.reload", Description = "Reloads a Dalamud plugin by its internal name.")]
+[McpTool("reload_plugin")]
+[CliCommand("plugin", "reload")]
+public sealed partial class ReloadPluginOperation
+    : IOperation<ReloadPluginOperation.Request, ReloadPluginResult>
 {
-    // Constructor: receives Dalamud services via DI
-    // CreateDalamudExecutor: factory that returns a delegate
-    // ReadCurrentCore: static method that reads game state
+    // Request: InternalName, WaitReady (bool, default false)
+    // Result:  IsLoaded, InternalName, ErrorMessage?
 }
 ```
 
-### API 15 Implications: NONE
+### 功能 2：跨插件 IPC 调用
 
-The operation model (attributes, `IOperation<TRequest,TResult>` interface, `GeneratedOperationRegistry`, `GeneratedOperationInvoker`) is defined in `DalamudMCP.Framework` which has zero Dalamud dependencies. The source generator in `DalamudMCP.Framework.Generators` targets `netstandard2.0` and is also unaffected.
+**映射到现有架构：** 扩展现有 `UnsafeInvokePluginIpcOperation` 的模式，新增一个**安全版本**。
 
-Each operation's `CreateDalamudExecutor` factory captures Dalamud services (like `IClientState`, `IFramework`) as closures. These service interfaces maintain the same method signatures for the properties/methods used by this codebase.
+| 组件 | 类型 | 变更 |
+|------|------|------|
+| `InvokePluginIpcOperation` | **新增** | 安全的 IPC 调用操作 |
+| `IPluginIpcGateway` | **扩展接口或新增** | 当前接口定义在 `UnsafeInvokePluginIpcOperation` 内部，需要提取到更可访问的位置 |
+| `PluginIpcGateway` | **移动** | 从内部类提取为共享服务 |
 
----
+**与 `unsafe.invoke.plugin-ipc` 的区别：**
 
-## Source Generator Analysis
+| 方面 | `unsafe.invoke.plugin-ipc` | `plugin.invoke-ipc` (新) |
+|------|---------------------------|--------------------------|
+| 风险等级 | 不安全（需启用 unsafe 操作） | 安全（默认启用） |
+| 输入 | callgate 名称 + 原始 JSON 参数 + 类型声明 | 结构化请求（target plugin + method + params） |
+| 类型安全 | 运行时反射，类型可错 | 约定类型映射，更可预测 |
+| 结果 | 原始 JSON 字符串 | 结构化结果 |
 
-### Current State
-
-The `OperationDescriptorGenerator` (~1700 lines) is a Roslyn incremental source generator that:
-1. Scans for `[Operation]`-attributed types
-2. Generates `GeneratedOperationRegistry` (list of all operation descriptors)
-3. Generates `GeneratedOperationInvoker` (switch dispatch for operation execution)
-
-### API 15 Implications: NONE
-
-The generator consumes `Microsoft.CodeAnalysis.CSharp` (v4.14.0) and targets `netstandard2.0`. It has no awareness of Dalamud API levels. The generated code references types from `DalamudMCP.Framework`, not from Dalamud itself.
-
----
-
-## Build Infrastructure Analysis
-
-### Current State
-
+**数据流（与现有完全一致）：**
 ```
-DalamudMCP.Plugin.csproj:
-  <Project Sdk="Dalamud.NET.Sdk/14.0.2">
-  <PackageReference Include="DalamudPackager" Version="14.0.2" />
-
-DalamudMCP.json:
-  "DalamudApiLevel": 14
-
-DalamudPackager.targets:
-  DalamudApiLevel="$(DalamudApiLevel)"
-
-build/*.ps1:
-  Uses Get-DotNetCommand to find dotnet
-  Uses Use-DalamudHome to find DALAMUD_HOME
+AI ──► MCP tool: invoke_plugin_ipc ──► OperationProtocolDispatcher
+                                            │
+                                      InvokePluginIpcOperation.ExecuteAsync()
+                                            │
+                                      IPluginIpcGateway.TryCreate(callgate, ...)
+                                            │
+                                      subscriber.InvokeFunc(args)
+                                            │
+                                      返回 InvokePluginIpcResult
 ```
 
-### API 15 Changes Required
+**关键设计决策：**
 
-| Element | API 14 Value | API 15 Value | File to Change |
-|---------|-------------|-------------|----------------|
-| SDK version | `Dalamud.NET.Sdk/14.0.2` | `Dalamud.NET.Sdk/15.0.0` | `src/DalamudMCP.Plugin/DalamudMCP.Plugin.csproj` line 1 |
-| Packager version | 14.0.2 (transitive via SDK) | 15.0.0 (transitive via SDK) | No explicit reference; auto-updated via SDK |
-| API level | 14 | 15 | `src/DalamudMCP.Plugin/DalamudMCP.json` line 14 |
-| Build environment | `DALAMUD_HOME` points to API 14 assemblies | `DALAMUD_HOME` must point to API 15 assemblies | Environment setup |
-| NuGet lock files | Reflect API 14 | Must reflect API 15 | Regenerate via `dotnet restore --locked-mode` |
+1. **复用 `IPluginIpcGateway` 抽象**：当前 `UnsafeInvokePluginIpcOperation.IPluginIpcGateway` 定义在操作类内部（`internal`），需要提取到共享命名空间。
+2. **不提供 SDK 给被测插件**：按 PROJECT.md 约束，被测插件仅实现标准的 Dalamud IPC 接口约定，无需额外依赖。
+3. **安全版本 vs unsafe 版本**：安全版本使用更受约束的参数格式（适用场景更可控），但底层仍走 Dalamud IPC 反射调用。
 
-### Build Order Impact
+### 功能 3：数据回传
 
-The `BundleCliOutput` MSBuild target in `DalamudMCP.Plugin.csproj` builds `DalamudMCP.Cli` as a dependency during Plugin build. This target has no Dalamud dependencies, so it is unaffected.
+**映射到现有架构：** 这是最重要的架构扩展点——需要新增**推送通道**。
 
-The test projects reference the Plugin project (or its interfaces). Any interface changes from API 15 would cascade, but since there are no interface changes needed, tests should pass without modification.
+**当前架构的限制：** 现有架构是严格的请求-响应模式：
+- AI 发请求 → Plugin 处理 → Plugin 返回响应
+- Plugin 无法主动推送数据给 AI
 
----
+**数据回传的需求：** 目标插件通过 Dalamud IPC 发送数据 → DalamudMCP 需要将数据转发给 AI。
 
-## Migration Build Order (Recommended)
+**两种可行方案：**
 
-```
-Phase 1: SDK + Manifest (no code changes)
-────────────────────────────────────────────
-  Step 1: Update csproj SDK version
-          File: src/DalamudMCP.Plugin/DalamudMCP.Plugin.csproj
-          Change: Dalamud.NET.Sdk/14.0.2 -> Dalamud.NET.Sdk/15.0.0
-
-  Step 2: Update manifest API level
-          File: src/DalamudMCP.Plugin/DalamudMCP.json
-          Change: "DalamudApiLevel": 14 -> "DalamudApiLevel": 15
-
-  Step 3: Update DALAMUD_HOME environment
-          Must point to directory with API 15 reference assemblies
-          (built from api15 branch of goatcorp/Dalamud)
-
-Phase 2: Build Validation (compile + fix)
-────────────────────────────────────────────
-  Step 4: Restore packages
-          Command: ./build/restore.ps1
-          Expected: packages.lock.json updated
-
-  Step 5: Build solution
-          Command: ./build/build.ps1
-          Outcome: 
-            - Jika kompilasi sukses → API 15 tidak memiliki breaking
-              changes yang mempengaruhi kode ini
-            - Jika kompilasi gagal → periksa pesan error (kemungkinan:
-              perubahan signature interface, metode obsolete)
-
-  Step 6: Fix any compilation errors
-          Most likely candidates (in order of probability):
-            a. IFramework.RunOnFrameworkThread async overloads deprecated
-               → but current codebase does NOT use these
-            b. Property renames / type changes on injected services
-               → belum ada laporan untuk API yang digunakan
-            c. Perubahan struct layout di FFXIVClientStructs
-               → out of scope, tetapi bisa muncul sebagai runtime failure
-
-Phase 3: Test Validation
-────────────────────────────
-  Step 7: Run unit tests
-          Command: ./build/test.ps1
-          Expected: all tests pass (no Dalamud API changes that affect mocks)
-
-  Step 8: Build release package
-          Command: dotnet build ... -c Release (see AGENTS.md)
-          Expected: valid API 15 plugin zip
-
-Phase 4: Runtime Validation
-────────────────────────────
-  Step 9: Manual test in-game with API 15 Dalamud
-          Verify: plugin loads, named pipe starts, CLI connects
-          Verify: all 20+ operations return correct data
-          Verify: IPC protocol works bidirectionally
-
-  Step 10: Regression check for unsafe operations
-           Operations using FFXIVClientStructs may have struct offsets
-           changed by Patch 7.5. Test thoroughly.
-```
-
----
-
-## Dependency Graph: What Changes Propagate
+#### 方案 A：轮询模式（推荐）
 
 ```
-Dalamud.NET.Sdk 14.0.2 -> 15.0.0
-  │
-  ├──► DalamudMCP.Plugin.csproj (direct Sdk attribute change)
-  │
-  ├──► DalamudPackager (transitive; new version includes API 15 packaging)
-  │     │
-  │     └──► DalamudMCP.json (Akurasi manifest sekarang diperlukan)
-  │           └──► "DalamudApiLevel": 14 -> 15
-  │
-  ├──► Reference assemblies berubah (di DALAMUD_HOME)
-  │     │
-  │     ├──► IDalamudPluginInterface implements IServiceProvider (optional)
-  │     ├──► IChatGui.XivChatType split (not used)
-  │     ├──► IClientState.ZoneInitEventArgs (not used)
-  │     ├──► IFramework async overloads obsolete (not used)
-  │     └──► Other interface changes (none reported)
-  │
-  └──► NuGet package lock files (regenerate)
+目标插件 ──[Dalamud IPC SendMessage]──► PluginIpcDataRelayService (缓冲区)
+                                              │
+AI ──► MPL tool: plugin_data_poll ──► PluginDataPollOperation.ExecuteAsync()
+                                              │
+                                        从缓冲区取出数据 ──► 返回给 AI
+```
 
-NO propagation to:
-  ├──► DalamudMCP.Framework (zero deps)
-  ├──► DalamudMCP.Protocol (zero deps)
-  ├──► DalamudMCP.Framework.Cli (zero deps)
-  ├──► DalamudMCP.Framework.Mcp (zero deps)
-  ├──► DalamudMCP.Framework.Generators (zero deps)
-  ├──► DalamudMCP.Cli (zero deps)
-  └──► All test projects (zero logical changes)
+| 组件 | 类型 | 变更 |
+|------|------|------|
+| `PluginIpcDataRelayService` | **新增** | 订阅目标插件 IPC 通道，缓冲数据 |
+| `PluginDataPollOperation` | **新增** | AI 轮询获取回传数据 |
+| `PluginDataSubscribeOperation` | **新增** | AI 订阅/取消订阅目标插件的 IPC 通道 |
+
+**优点：**
+- 零协议变更：复用现有请求-响应模式
+- AI 完全控制节奏
+- MCP 协议兼容（所有 MCP 客户端支持 tools/call）
+
+**轮询模式的工作流程：**
+1. AI 调用 `plugin_data_subscribe` → DalamudMCP 订阅目标插件的 IPC 通道
+2. 目标插件通过 IPC SendMessage 推送数据 → `PluginIpcDataRelayService` 缓冲
+3. AI 调用 `plugin_data_poll` → 获取缓冲区中的新数据
+4. AI 完成后调用 `plugin_data_unsubscribe` → 清理订阅
+
+#### 方案 B：MCP Notification 推送（备选）
+
+利用 MCP 协议的 `notifications/tools/list_changed` 或自定义 notification 通道主动推送。需要修改 CLI 端的 MCP 服务层来支持 notification 发送。
+
+**不推荐原因：**
+- 需要修改 `RemoteMcpToolService` 和 MCP 服务托管层
+- 不是所有 MCP 客户端都支持 notification
+- 增加复杂度，收益不大
+
+**最终选择：方案 A（轮询模式）**
+
+### 功能 4：斜杠命令调度
+
+**映射到现有架构：** 新增一个 `[Operation]` 类。
+
+| 组件 | 类型 | 变更 |
+|------|------|------|
+| `SlashCommandOperation` | **新增** | 斜杠命令调度操作 |
+
+**数据流：**
+```
+AI ──► MCP tool: execute_slash_command ──► OperationProtocolDispatcher
+                                                │
+                                          SlashCommandOperation.ExecuteAsync()
+                                                │
+                                          IFramework.RunOnFrameworkThread()
+                                                │
+                                          使用 /xlcommand 或游戏内聊天输入
+                                                │
+                                          返回 SlashCommandResult
+```
+
+**关键设计决策：**
+
+1. **使用 Dalamud 的命令系统**：`ICommandManager.DispatchCommand()` 或直接发送聊天消息。`/xlcommand` 类型的命令可以通过 `ICommandManager` 路由，普通游戏 `/` 命令通过聊天输入。
+2. **必须在 Framework 线程执行**：所有影响游戏状态的操作都需要 Framework 线程上下文。
+3. **无返回值**：斜杠命令是"发送即忘"——触发后立即返回确认，不等待命令结果。命令执行结果可通过 `ChatLogBufferService` 日后查询（已有功能）。
+
+---
+
+## 新增组件清单
+
+### 新增文件
+
+| 文件 | 项目 | 职责 |
+|------|------|------|
+| `Operations/ReloadPluginOperation.cs` | Plugin | 插件重载操作 |
+| `Operations/InvokePluginIpcOperation.cs` | Plugin | 安全跨插件 IPC 调用操作 |
+| `Operations/SlashCommandOperation.cs` | Plugin | 斜杠命令调度操作 |
+| `Operations/PluginDataSubscribeOperation.cs` | Plugin | IPC 数据订阅操作 |
+| `Operations/PluginDataPollOperation.cs` | Plugin | IPC 数据轮询操作 |
+| `Operations/PluginDataUnsubscribeOperation.cs` | Plugin | IPC 数据取消订阅操作 |
+| `Services/PluginIpcDataRelayService.cs` | Plugin | IPC 数据中继缓冲服务 |
+| `Services/PluginIpcGateway.cs` | Plugin | 从 `UnsafeInvokePluginIpcOperation` 提取的 IPC 网关实现 |
+
+### 修改文件
+
+| 文件 | 项目 | 变更 |
+|------|------|------|
+| `UnsafeInvokePluginIpcOperation.cs` | Plugin | 提取 `IPluginIpcGateway`/`IPluginCallGateSubscriber` 到共享位置，改为引用共享接口 |
+| `PluginServiceCollectionExtensions.cs` | Plugin | 注册 `PluginIpcGateway`、`PluginIpcDataRelayService` 为单例 |
+| `PluginOperationExposurePolicy.cs` | Plugin | 添加新操作的分类（`ActionOperationIds` 或新分类） |
+| `PluginEntryPoint.cs` | Plugin | 无需变更（DI 自动通过源生成器注册） |
+
+### 不变更的文件
+
+| 文件/组件 | 原因 |
+|-----------|------|
+| 所有 `Framework/` 项目 | 操作模型和协议层完全适配新增操作 |
+| `Framework.Generators/` | 源生成器自动处理新的 `[Operation]` 类 |
+| `Protocol/` | 协议信封无变更，新操作使用现有序列化 |
+| `Framework.Mcp/` | MCP 工具绑定无变更 |
+| `Framework.Cli/` | CLI 调用绑定无变更 |
+| `OperationProtocolDispatcher` | 通过 `IOperationInvoker` 自动路由新操作 |
+| `NamedPipeProtocolServer/Client` | 无协议变更 |
+
+---
+
+## 推荐架构模式
+
+### 模式 1：操作属性 + 源生成器（遵循现有模式）
+
+**何时使用：** 所有新功能——插件重载、IPC 调用、数据轮询、斜杠命令。
+
+**示例：**
+```csharp
+[Operation("plugin.reload", Description = "...")]
+[McpTool("reload_plugin")]
+[CliCommand("plugin", "reload")]
+[ResultFormatter(typeof(ReloadPluginOperation.TextFormatter))]
+public sealed partial class ReloadPluginOperation
+    : IOperation<ReloadPluginOperation.Request, ReloadPluginResult>
+{
+    [MemoryPackable]
+    [ProtocolOperation("plugin.reload")]
+    public sealed partial record Request
+    {
+        [Option("internal-name", Description = "The internal name of the plugin to reload.")]
+        public string InternalName { get; init; } = string.Empty;
+    }
+
+    public ValueTask<ReloadPluginResult> ExecuteAsync(Request request, OperationContext context)
+    {
+        // 实现在 Framework 线程执行重载
+    }
+}
+```
+
+**为什么：** 源生成器自动注册到 `GeneratedOperationRegistry`、`GeneratedOperationInvoker`、`GeneratedMcpTools`。新增操作不需要修改任何生成器或注册代码。
+
+### 模式 2：Dalamud IPC 网关抽象（提取并扩展现有模式）
+
+**何时使用：** 跨插件 IPC 调用和数据回传。
+
+**当前状态：** `IPluginIpcGateway` 和 `IPluginCallGateSubscriber` 是 `UnsafeInvokePluginIpcOperation` 的内部接口。
+
+**建议：** 提取到 `Services/PluginIpcGateway.cs`，作为共享单例服务：
+
+```csharp
+namespace DalamudMCP.Plugin.Services;
+
+public interface IPluginIpcGateway
+{
+    bool TryCreate(string callgate, IReadOnlyList<Type> typeArguments, out IPluginCallGateSubscriber? subscriber);
+}
+
+public interface IPluginCallGateSubscriber
+{
+    bool HasFunction { get; }
+    object? InvokeFunc(IReadOnlyList<object?> arguments);
+    // v1.1 新增：订阅 IPC 消息
+    IPluginIpcSubscription Subscribe(Action<object?[]> handler);
+}
+
+public interface IPluginIpcSubscription : IDisposable
+{
+    string Callgate { get; }
+}
+```
+
+**为什么：** 
+- `UnsafeInvokePluginIpcOperation` 和新的 `InvokePluginIpcOperation` 共享同一个网关
+- `PluginIpcDataRelayService` 需要订阅 IPC 消息（`Subscribe`）
+- 测试时可 mock `IPluginIpcGateway`
+
+### 模式 3：数据中继缓冲服务
+
+**何时使用：** IPC 数据回传。
+
+**设计：**
+```csharp
+namespace DalamudMCP.Plugin.Services;
+
+public sealed class PluginIpcDataRelayService : IDisposable
+{
+    // 按订阅通道缓冲数据
+    private readonly ConcurrentDictionary<string, Channel<PluginIpcDataEvent>> channels;
+    
+    // 订阅目标 IPC 通道
+    public void Subscribe(string ipcChannel, int maxBufferSize = 1000);
+    
+    // 取消订阅
+    public void Unsubscribe(string ipcChannel);
+    
+    // 轮询：获取指定通道的缓冲数据
+    public PluginIpcDataPollResult Poll(string ipcChannel, int maxCount = 100);
+    
+    // IDisposable
+    public void Dispose();
+}
+```
+
+**关键考虑：**
+- 使用 `System.Threading.Channels.Channel<T>` 作为缓冲区（有界，防止内存泄漏）
+- 每个订阅通道独立缓冲
+- 订阅使用 Dalamud 的 `ICallGateSubscriber.Subscribe()` API
+- 数据格式统一为 JSON 字符串（因为 IPC 消息参数类型是动态的）
+
+### 模式 4：暴露策略扩展
+
+**当前：** `PluginOperationExposurePolicy` 分两类：
+- `ActionOperationIds`：行动操作（需要启用 action 标志）
+- `UnsafeOperationIds`：不安全操作（需要启用 unsafe 标志）
+
+**新增分类建议：**
+```csharp
+private static readonly HashSet<string> UnsafeOperationIds =
+[
+    "unsafe.invoke.plugin-ipc"
+];
+
+private static readonly HashSet<string> ActionOperationIds =
+[
+    "target.object",
+    "interact.with.target",
+    // ... 现有的行动操作 ...
+    "plugin.reload",           // 新增：插件重载是行动操作
+    "execute.slash-command",   // 新增：斜杠命令是行动操作
+];
+
+// 新增：IPC 操作不需要特殊标志，默认启用
+// "plugin.invoke-ipc"
+// "plugin.data.subscribe"
+// "plugin.data.poll"
+// "plugin.data.unsubscribe"
 ```
 
 ---
 
-## Risk Assessment: Runtime vs. Compile-Time
+## 反模式警示
 
-| Risk | Severity | Likelihood | Mitigation |
-|------|----------|------------|------------|
-| API 15 introduces interface changes beyond documented ones | Medium | Low | Build first, then test; compilation errors will surface interface mismatches |
-| FFXIVClientStructs struct layout changes (Patch 7.5) | **High** | **High** (every patch) | Out of scope per PROJECT.md, but operations using unsafe struct access will silently corrupt data or crash. Must be tested in-game with Patch 7.5. |
-| `IDalamudPluginInterface` as `IServiceProvider` changes DI resolution behavior | Low | Low | Current code uses manual DI; not affected |
-| SDK 15.0.0 not yet available as NuGet package | Blocking | Medium (pre-release) | Butuh `DALAMUD_HOME` pointing to locally built API 15 assemblies |
-| `packages.lock.json` version conflicts | Low | Medium | Regenerate with `dotnet restore --force-evaluate` if existing locks are incompatible |
+### 反模式 1：绕过操作模型直接暴露 IPC
 
----
+**不应该：** 在 `OperationProtocolDispatcher` 中硬编码新操作的路由逻辑。
 
-## Architectural Anti-Patterns to Avoid During Migration
+**原因：** 破坏了源生成器驱动的操作注册模型。所有操作应该通过 `[Operation]` 属性声明，由源生成器自动注册。
 
-### 1. Mengganti seluruh DI hanya karena API 15 menambahkan IServiceProvider
+**应该：** 每个新功能都创建一个 `IOperation<TRequest, TResult>` 实现类。
 
-**Jangan lakukan:** Refactor `PluginEntryPoint` untuk menghapus semua constructor parameters dan menggunakan `pluginInterface.GetRequiredService<T>()` di mana-mana.
+### 反模式 2：将 IPC 网关注入到每个操作
 
-**Alasan:** Ini menghilangkan explicit dependency declaration yang membuat kode mudah dipahami dan di-test. Constructor injection adalah pattern yang lebih baik daripada service location.
+**不应该：** 让每个需要 IPC 的操作都自己构造 `PluginIpcGateway` 实例。
 
-**Lakukan sebaliknya:** Pertahankan constructor injection untuk saat ini. Jika nanti ada alasan kuat untuk refactoring (misalnya jumlah parameter terus bertambah), lakukan secara bertahap.
+**原因：** 构造函数膨胀、重复代码、测试困难。
 
-### 2. Meng-upgrade NuGet dependencies secara bersamaan
+**应该：** 提取 `IPluginIpcGateway` 为 DI 单例，通过构造函数注入。
 
-**Jangan lakukan:** Upgrade MemoryPack, Microsoft.Extensions.DependencyInjection, atau ModelContextProtocol bersamaan dengan migrasi API 15.
+### 反模式 3：在数据回传中使用无限缓冲区
 
-**Alasan:** API 15 migration seharusnya minimal. Jika upgrade dependency lain gagal, sulit membedakan apakah error berasal dari API 15 atau upgrade tersebut.
+**不应该：** 用 `ConcurrentQueue<T>` 或 `List<T>` 存储回传数据，没有容量限制。
 
-**Lakukan sebaliknya:** Hanya upgrade `Dalamud.NET.Sdk`. Biarkan dependency lain di versi saat ini.
+**原因：** 如果 AI 客户端不轮询，内存会无限增长。
 
-### 3. Mengubah IPC protocol karena API 15
+**应该：** 使用有界 `Channel<T>` 或带容量限制的环形缓冲区，超出容量时丢弃最旧数据。
 
-**Jangan lakukan:** Modifikasi `ProtocolContract`, envelope types, atau protocol version.
+### 反模式 4：在不安全的操作中暴露插件发现
 
-**Alasan:** IPC layer tidak bergantung pada Dalamud sama sekali. Protocol version (`v2.0.0`) bersifat independent.
+**不应该：** 在 v1.1 中提供"列出所有已安装插件及 IPC 接口"的功能。
+
+**原因：** PROJECT.md 明确将"插件自动发现"列为 Out of Scope。
+
+**应该：** AI 客户端需要预先知道目标插件的 IPC callgate 名称。
 
 ---
 
-## Conclusion
+## 数据流变化
 
-The DalamudMCP project's architecture is well-isolated for this migration. The bridge/proxy pattern intentionally keeps Dalamud dependencies contained to the `Plugin` project. API 15's documented breaking changes affect APIs that this project does not consume. The migration is essentially:
+### 新增数据流 1：插件重载
 
-1. **Three configuration changes** (csproj SDK, manifest API level, DALAMUD_HOME)
-2. **Build and test validation** (compilation check, unit tests, in-game testing)
-3. **Runtime verification with Patch 7.5** (unsafe struct operations)
+```
+AI Client
+  └── MCP tool: reload_plugin(internal_name: "MyPlugin")
+        │
+        ├── NamedPipeProtocolClient 发送 ProtocolRequestEnvelope
+        │       RequestType: "plugin.reload"
+        │       Payload: MemoryPack serialized Request
+        │
+        └── NamedPipeProtocolServer 接收
+                │
+            OperationProtocolDispatcher.DispatchAsync()
+                │
+            GeneratedOperationInvoker.TryInvoke("plugin.reload", ...)
+                │
+            ReloadPluginOperation.ExecuteAsync()
+                │
+                ├── IFramework.RunOnFrameworkThread() ← 必须在 Framework 线程
+                ├── IDalamudPluginInterface.InstalledPlugins → 找到目标
+                ├── IExposedPlugin.Reload() → 触发重载
+                └── 返回 ReloadPluginResult { IsReloadTriggered: true }
+```
 
-The FFXIVClientStructs changes for Patch 7.5 represent the highest real risk, but they are explicitly scoped out of this migration milestone per PROJECT.md.
+### 新增数据流 2：跨插件 IPC 调用
+
+```
+AI Client
+  └── MCP tool: invoke_plugin_ipc(callgate: "MyPlugin.GetData", args: [...])
+        │
+        ├── NamedPipeProtocolClient 发送 ProtocolRequestEnvelope
+        │       RequestType: "plugin.invoke-ipc"
+        │
+        └── NamedPipeProtocolServer 接收
+                │
+            OperationProtocolDispatcher.DispatchAsync()
+                │
+            InvokePluginIpcOperation.ExecuteAsync()
+                │
+                ├── IPluginIpcGateway.TryCreate("MyPlugin.GetData", ...)
+                ├── IPluginCallGateSubscriber.HasFunction → 检查
+                ├── IPluginCallGateSubscriber.InvokeFunc(args) → 调用目标插件的 IPC 方法
+                └── 返回 InvokePluginIpcResult { Succeeded: true, ResultJson: "..." }
+```
+
+### 新增数据流 3：数据回传（轮询模式）
+
+```
+步骤 1：订阅
+AI Client
+  └── MCP tool: plugin_data_subscribe(channel: "MyPlugin.StatusChannel")
+        │
+        └── PluginDataSubscribeOperation.ExecuteAsync()
+                │
+                └── PluginIpcDataRelayService.Subscribe("MyPlugin.StatusChannel")
+                        │
+                        └── ICallGateSubscriber<...>.Subscribe(handler) ← Dalamud IPC
+
+步骤 2：目标插件推送数据
+目标插件 ──[IPC SendMessage]──► Dalamud IPC 消息总线
+                                        │
+                                   ICallGateSubscriber 触发 handler
+                                        │
+                                   PluginIpcDataRelayService 缓冲数据
+
+步骤 3：轮询获取
+
+AI Client
+  └── MCP tool: plugin_data_poll(channel: "MyPlugin.StatusChannel")
+        │
+        └── PluginDataPollOperation.ExecuteAsync()
+                │
+                └── PluginIpcDataRelayService.Poll("MyPlugin.StatusChannel")
+                        │
+                        └── 返回 PluginIpcDataPollResult { Events: [...] }
+```
+
+### 新增数据流 4：斜杠命令调度
+
+```
+AI Client
+  └── MCP tool: execute_slash_command(command: "/ping")
+        │
+        └── SlashCommandOperation.ExecuteAsync()
+                │
+                ├── IFramework.RunOnFrameworkThread()
+                ├── GameInterop 或 IChatGui.SendMessage 执行命令
+                └── 返回 SlashCommandResult { Dispatched: true }
+```
 
 ---
 
-## Sources
+## 可扩展性考虑
 
-- [What's New in Dalamud v15](https://dalamud.dev/versions/v15/) — Medium confidence (pre-release, not finalized)
-- [IDalamudPluginInterface API 15 docs](https://dalamud.dev/api/api15/Dalamud.Plugin/Interfaces/IDalamudPluginInterface/) — Medium confidence
-- [IClientState API 15 docs](https://dalamud.dev/api/api15/Dalamud.Plugin.Services/Interfaces/IClientState/) — Medium confidence
-- [IFramework API 15 docs](https://dalamud.dev/api/api15/Dalamud.Plugin.Services/Interfaces/IFramework/) — Medium confidence
-- Codebase analysis of `src/DalamudMCP.Plugin/` — HIGH confidence (verified against actual source)
-- WebSearch: "Dalamud v15 breaking changes" multiple queries — LOW-MEDIUM confidence (search results contradict each other on API 15 existence)
+| 关注点 | 100 用户 | 10K 用户 | 1M 用户 |
+|--------|---------|---------|---------|
+| 数据回传缓冲区 | 单 Channel<T>，1K 容量 | 多通道，每通道 1K | 需要流控和过期清理 |
+| IPC 调用延迟 | 毫秒级（进程内） | 毫秒级（不受负载影响） | 同左 |
+| 斜杠命令执行 | 即时（Framework 线程排队） | 同左 | 同左 |
+| 插件重载 | 即时（Framework 线程同步） | 同左 | 同左 |
+
+**注意：** DalamudMCP 是单用户本地工具，不会有多用户并发场景。上述可扩展性维度主要考虑的是数据回传缓冲区在长时间运行时的内存问题。
 
 ---
-*Architecture research for: DalamudMCP API Level 15 migration*
-*Researched: 2026-04-30*
+
+## 推荐构建顺序
+
+按依赖关系和风险排序：
+
+### 阶段 1：基础设施（提取共享 IPC 网关）
+**为什么先做：** 所有跨插件功能都依赖 IPC 网关。
+
+1. 从 `UnsafeInvokePluginIpcOperation.cs` 提取 `IPluginIpcGateway` 和 `IPluginCallGateSubscriber` 到 `Services/IPluginIpcGateway.cs`
+2. 从 `UnsafeInvokePluginIpcOperation.cs` 提取 `PluginIpcGateway` 实现到 `Services/PluginIpcGateway.cs`
+3. 在 `PluginServiceCollectionExtensions.cs` 注册 `IPluginIpcGateway` 为单例
+4. 修改 `UnsafeInvokePluginIpcOperation` 使用注入的 `IPluginIpcGateway`
+5. 运行测试确保无回归
+
+### 阶段 2：插件重载操作
+**为什么先做：** 最简单的跨插件功能，验证新操作模式正确。
+
+1. 创建 `ReloadPluginOperation.cs`
+2. 更新 `PluginOperationExposurePolicy` 添加 `plugin.reload` 到行动操作
+3. 运行测试
+
+### 阶段 3：斜杠命令调度
+**为什么先做：** 功能独立且简单。
+
+1. 创建 `SlashCommandOperation.cs`
+2. 更新 `PluginOperationExposurePolicy` 添加 `execute.slash-command` 到行动操作
+3. 运行测试
+
+### 阶段 4：安全 IPC 调用
+**依赖阶段 1：** 需要 `IPluginIpcGateway` 抽象。
+
+1. 创建 `InvokePluginIpcOperation.cs`（安全版本）
+2. 操作默认启用，不需要特殊标志
+3. 运行测试
+
+### 阶段 5：数据回传
+**依赖阶段 1 和 4：** 最复杂的功能，需要 IPC 订阅能力。
+
+1. 创建 `PluginIpcDataRelayService.cs`
+2. 创建 `PluginDataSubscribeOperation.cs`
+3. 创建 `PluginDataPollOperation.cs`
+4. 创建 `PluginDataUnsubscribeOperation.cs`
+5. 在 `PluginServiceCollectionExtensions.cs` 注册 `PluginIpcDataRelayService`
+6. 更新 `IPluginCallGateSubscriber` 添加消息订阅支持
+7. 运行测试
+
+---
+
+## 源
+
+- Dalamud IPC API (GetIpcSubscriber, ICallGateSubscriber) — dalamud.dev — HIGH confidence
+- Dalamud IPluginInterface.InstalledPlugins / IExposedPlugin — dalamud.dev — HIGH confidence
+- 现有代码库分析 (`UnsafeInvokePluginIpcOperation`, `OperationProtocolDispatcher`, 源生成器) — HIGH confidence
+- Dalamud `ICommandManager` / 聊天命令 API — MEDIUM confidence（需验证 API 15 具体接口）
+- `ICallGateSubscriber.Subscribe` / `SendMessage` 消息模式 — MEDIUM confidence（需验证泛型参数限制）
+
+---
+
+*架构研究：DalamudMCP v1.1 自动化测试桥接*
+*研究日期：2026-05-01*
