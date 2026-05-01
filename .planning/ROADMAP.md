@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 API 15 迁移** — Phases 1-10 (shipped 2026-05-01)
-- 🚧 **v1.1 自动化测试桥接** — Phases 11-15 (in progress)
+- ✅ **v1.1 自动化测试桥接** — Phases 11-15 (complete 2026-05-02)
 
 ## Phases
 
@@ -23,7 +23,7 @@
 
 </details>
 
-### 🚧 v1.1 自动化测试桥接 (In Progress)
+### ✅ v1.1 自动化测试桥接 (Complete)
 
 **Milestone Goal:** 让 DalamudMCP 成为其他 Dalamud 插件的自动化测试桥梁，AI 可重载插件、调用 IPC、接收回传数据、发送斜杠命令
 
@@ -31,7 +31,7 @@
 - [ ] **Phase 12: 插件重载操作** — AI 通过 MCP 触发指定插件重载
 - [x] **Phase 13: 斜杠命令调度** — AI 通过 MCP 发送游戏内斜杠命令
 - [x] **Phase 14: 安全 IPC 调用** — AI 通过 MCP 调用目标插件的 IPC 方法并获取返回值
-- [ ] **Phase 15: 数据回传** — 目标插件通过 IPC 发送数据，AI 通过 MCP 轮询获取
+- [x] **Phase 15: 数据回传** — 目标插件通过 IPC 发送数据，AI 通过 MCP 轮询获取
 
 ## Phase Details
 
@@ -110,8 +110,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 15-01-PLAN.md — PluginDataRelayService 基础设施（接口、Channel 管理、IPC Provider、自动清理、DI 注册）
-- [ ] 15-02-PLAN.md — 3 个操作类（subscribe/unsubscribe/poll）+ 暴露策略 + 21 个单元测试
+- [x] 15-01-PLAN.md — PluginDataRelayService 基础设施（接口、Channel 管理、IPC Provider、自动清理、DI 注册）
+- [x] 15-02-PLAN.md — 3 个操作类（subscribe/unsubscribe/poll）+ 暴露策略 + 21 个单元测试
 
 ## Progress
 
@@ -125,7 +125,7 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
 | 12. 插件重载操作 | v1.1 | 2/2 | Complete ✅ | 2026-05-01 |
 | 13. 斜杠命令调度 | v1.1 | 2/2 | Complete ✅ | 2026-05-01 |
 | 14. 安全 IPC 调用 | v1.1 | 2/2 | Complete ✅ | 2026-05-01 |
-| 15. 数据回传 | v1.1 | 0/? | Not started | - |
+| 15. 数据回传 | v1.1 | 2/2 | Complete ✅ | 2026-05-02 |
 
 ---
 
