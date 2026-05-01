@@ -29,7 +29,7 @@
 
 - [x] **Phase 11: IPC 基础设施提取** — 提取共享 IPC 网关服务，为后续跨插件功能奠定基础
 - [ ] **Phase 12: 插件重载操作** — AI 通过 MCP 触发指定插件重载
-- [ ] **Phase 13: 斜杠命令调度** — AI 通过 MCP 发送游戏内斜杠命令
+- [x] **Phase 13: 斜杠命令调度** — AI 通过 MCP 发送游戏内斜杠命令
 - [ ] **Phase 14: 安全 IPC 调用** — AI 通过 MCP 调用目标插件的 IPC 方法并获取返回值
 - [ ] **Phase 15: 数据回传** — 目标插件通过 IPC 发送数据，AI 通过 MCP 轮询获取
 
@@ -78,8 +78,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 13-01-PLAN.md — 创建 SlashCommandOperation 操作类 + 注册 unsafe 暴露策略
-- [ ] 13-02-PLAN.md — 创建单元测试（10 个测试覆盖全部验证/线程/构造路径）
+- [x] 13-01-PLAN.md — 创建 SlashCommandOperation 操作类 + 注册 unsafe 暴露策略
+- [x] 13-02-PLAN.md — 创建单元测试（11 个测试覆盖全部验证/线程/构造路径）
 
 ### Phase 14: 安全 IPC 调用
 **Goal**: AI 客户端能够通过 MCP 调用目标插件的 IPC 函数，传入参数并获取返回值，错误信息结构化可读
@@ -91,7 +91,11 @@ Plans:
   3. IPC 调用在 Framework 线程上执行，支持基元类型和 JSON 字符串信封作为参数
   4. 错误响应细分为 `ipc_missing`/`ipc_not_ready`/`ipc_type_mismatch`/`ipc_plugin_error` 等状态码
   5. 现有 `unsafe.invoke.plugin-ipc` 逃生舱继续工作，新安全版本为推荐方式
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 14-01-PLAN.md — 创建 SafeInvokePluginIpcOperation 操作类 + 注册 "plugin.ipc" 到 unsafe 暴露策略
+- [ ] 14-02-PLAN.md — 创建单元测试（24 个测试覆盖全部 5 种状态码/类型推断/线程编排/构造验证）
 
 ### Phase 15: 数据回传
 **Goal**: 目标插件能够通过 IPC 向 DalamudMCP 推送结构化数据，AI 客户端通过 MCP 操作轮询获取这些数据
@@ -115,8 +119,8 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
 |-------|-----------|----------------|--------|-----------|
 | 11. IPC 基础设施提取 | v1.1 | 3/3 | Complete ✅ | 2026-05-01 |
 | 12. 插件重载操作 | v1.1 | 2/2 | Complete ✅ | 2026-05-01 |
-| 13. 斜杠命令调度 | v1.1 | 0/2 | Planned | 2026-05-01 |
-| 14. 安全 IPC 调用 | v1.1 | 0/? | Not started | - |
+| 13. 斜杠命令调度 | v1.1 | 2/2 | Complete ✅ | 2026-05-01 |
+| 14. 安全 IPC 调用 | v1.1 | 0/2 | Planned | 2026-05-01 |
 | 15. 数据回传 | v1.1 | 0/? | Not started | - |
 
 ---
