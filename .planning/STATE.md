@@ -11,24 +11,25 @@ See: .planning/PROJECT.md (updated 2026-05-01)
 
 Milestone: v1.1 自动化测试桥接
 Phase: 11 of 15 (IPC 基础设施提取)
-Plan: — of —
-Status: Context ready, ready to plan
-Last activity: 2026-05-01 — Phase 11 context gathered
+Plan: 1 of 3
+Status: ◆ In progress — Wave 1 complete (11-01), awaiting 11-02
+Last activity: 2026-05-01 — Plan 11-01 completed (4 IPC infrastructure files extracted)
 
-Progress: [░░░░░░░░░░░░░░░] 0%
+Progress: [▓░░░░░░░░░░░░░░░] 6%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 15 (v1.0)
-- Average duration: —
-- Total execution time: —
+- Total plans completed: 16 (15 v1.0 + 1 v1.1)
+- Average duration: 3.3 min (v1.1)
+- Total execution time: 3.3 min (v1.1)
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | v1.0 (1-10) | 15 | — | — |
+| 11-ipc-infra | 1 | 3.3 min | 3.3 min |
 
 **Recent Trend:**
 - Last 5 plans: v1.0 plans completed 2026-05-01
@@ -71,5 +72,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-05-01
-Stopped at: Phase 11 context gathered
-Resume file: .planning/phases/11-ipc-infra/11-CONTEXT.md
+Stopped at: Completed 11-01-PLAN.md (IPC interfaces extracted)
+Resume file: .planning/phases/11-ipc-infra/11-02-PLAN.md
