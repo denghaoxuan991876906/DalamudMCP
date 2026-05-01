@@ -48,7 +48,7 @@
 
 Plans:
 - [x] 11-01-PLAN.md — 提取 IPC 接口和实现到独立文件（4 个新文件）
-- [ ] 11-02-PLAN.md — 重构操作类并注册 DI（2 个现有文件修改）
+- [x] 11-02-PLAN.md — 重构操作类并注册 DI（2 个现有文件修改）
 - [ ] 11-03-PLAN.md — 提取测试桩并新增服务测试（5 个文件）
 
 ### Phase 12: 插件重载操作
@@ -105,7 +105,7 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 11. IPC 基础设施提取 | v1.1 | 1/3 | In Progress | - |
+| 11. IPC 基础设施提取 | v1.1 | 2/3 | In Progress | - |
 | 12. 插件重载操作 | v1.1 | 0/? | Not started | - |
 | 13. 斜杠命令调度 | v1.1 | 0/? | Not started | - |
 | 14. 安全 IPC 调用 | v1.1 | 0/? | Not started | - |

@@ -11,25 +11,25 @@ See: .planning/PROJECT.md (updated 2026-05-01)
 
 Milestone: v1.1 自动化测试桥接
 Phase: 11 of 15 (IPC 基础设施提取)
-Plan: 1 of 3
-Status: ◆ In progress — Wave 1 complete (11-01), awaiting 11-02
-Last activity: 2026-05-01 — Plan 11-01 completed (4 IPC infrastructure files extracted)
+Plan: 2 of 3
+Status: ◆ In progress — Wave 2 complete (11-02), awaiting 11-03
+Last activity: 2026-05-01 — Plan 11-02 completed (DI wiring complete)
 
-Progress: [▓░░░░░░░░░░░░░░░] 6%
+Progress: [▓▓░░░░░░░░░░░░░░] 8%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 16 (15 v1.0 + 1 v1.1)
-- Average duration: 3.3 min (v1.1)
-- Total execution time: 3.3 min (v1.1)
+- Total plans completed: 17 (15 v1.0 + 2 v1.1)
+- Average duration: 3.2 min (v1.1)
+- Total execution time: 6.3 min (v1.1)
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | v1.0 (1-10) | 15 | — | — |
-| 11-ipc-infra | 1 | 3.3 min | 3.3 min |
+| 11-ipc-infra | 2 | 6.3 min | 3.2 min |
 
 **Recent Trend:**
 - Last 5 plans: v1.0 plans completed 2026-05-01
@@ -72,5 +72,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-05-01
-Stopped at: Completed 11-01-PLAN.md (IPC interfaces extracted)
-Resume file: .planning/phases/11-ipc-infra/11-02-PLAN.md
+Stopped at: Completed 11-02-PLAN.md (DI wiring and constructor refactoring)
+Resume file: .planning/phases/11-ipc-infra/11-03-PLAN.md
