@@ -12,8 +12,8 @@ See: .planning/PROJECT.md (updated 2026-05-01)
 Milestone: v1.1 自动化测试桥接
 Phase: 11 of 15 (IPC 基础设施提取)
 Plan: — of —
-Status: Ready to plan
-Last activity: 2026-05-01 — Roadmap created for v1.1
+Status: Context ready, ready to plan
+Last activity: 2026-05-01 — Phase 11 context gathered
 
 Progress: [░░░░░░░░░░░░░░░] 0%
 
@@ -71,5 +71,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-05-01
-Stopped at: v1.1 roadmap created, ready to plan Phase 11
-Resume file: None
+Stopped at: Phase 11 context gathered
+Resume file: .planning/phases/11-ipc-infra/11-CONTEXT.md
