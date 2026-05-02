@@ -732,27 +732,27 @@ private static SafeInvokePluginIpcOperation CreateOperation(
 
 ---
 
-## 待解决问题
+## 待解决问题 (RESOLVED)
 
-1. **IPC Provider 线程安全性**
+1. **IPC Provider 线程安全性** RESOLVED
    - 已知：`Channel<T>` 是线程安全的
    - 不明确：Dalamud 的 `RegisterAction` 回调在哪个线程执行
-   - 建议：在实现中不假设线程上下文，依赖 Channel 的线程安全性
+   - 决议：在实现中不假设线程上下文，依赖 Channel 的线程安全性；所有 IPC Provider 注册均在 `RunOnFrameworkThread` 内完成以保持一致性
 
-2. **自动清理的频率与性能**
+2. **自动清理的频率与性能** RESOLVED
    - 已知：`IFramework.Update` 每帧触发
    - 不明确：`InstalledPlugins` 遍历的性能开销
-   - 建议：使用帧计数节流（每 60 帧），仅在活跃通道数 > 0 时执行
+   - 决议：使用帧计数节流（每 60 帧），仅在活跃通道数 > 0 时执行
 
-3. **Channel 容量的最佳默认值**
+3. **Channel 容量的最佳默认值** RESOLVED
    - 已知：1000 为合理中间值
    - 不明确：实际使用场景中的高频推送速率
-   - 建议：默认 1000，可在 `PluginRuntimeOptions` 中添加配置项
+   - 决议：默认 1000，后续可在 `PluginRuntimeOptions` 中添加配置项；MCP 工具描述中说明容量限制以设置合理预期
 
-4. **目标插件如何知道通道名称**
+4. **目标插件如何知道通道名称** RESOLVED
    - 已知：AI 通过 MCP 工具管理订阅
    - 不明确：目标插件如何获知已创建的回传通道
-   - 建议：MCP 工具描述中明确说明 CallGate 命名约定，AI 负责在提示词中告知目标插件要使用的 CallGate 名称
+   - 决议：MCP 工具描述中明确说明 CallGate 命名约定（`{PluginName}.MCP.Relay.{ChannelName}`），AI 负责在提示词中告知目标插件 CallGate 名称
 
 ---
 

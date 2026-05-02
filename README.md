@@ -59,9 +59,15 @@ Action tools:
 - `addon.callback.values`
 - `addon.select.menu-item`
 
-Developer-only unsafe tool:
+Developer-only unsafe tools:
 
 - `unsafe.invoke.plugin-ipc`
+- `plugin.reload`
+- `command.slash`
+- `plugin.ipc`
+- `plugin.data.subscribe`
+- `plugin.data.unsubscribe`
+- `plugin.data.poll`
 
 The handwritten truth source for these operations lives under [`src/DalamudMCP.Plugin/Operations`](./src/DalamudMCP.Plugin/Operations).
 

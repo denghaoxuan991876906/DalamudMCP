@@ -800,17 +800,17 @@ private static readonly HashSet<string> UnsafeOperationIds =
 
 ---
 
-## 16. 开放问题
+## 16. 开放问题 (RESOLVED)
 
-1. **Dalamud GetIpcSubscriber 泛型参数数量上限是多少？**
+1. **Dalamud GetIpcSubscriber 泛型参数数量上限是多少？** RESOLVED
    - 已知：`PluginIpcGateway` 通过反射扫描所有 `GetIpcSubscriber*` 重载，按参数数量排序
    - 不清楚：Dalamud SDK 中精确的重载数量（影响参数个数上限）
-   - 建议：保守限制在 ≤ 8 参数；实际值可在测试中通过查看 `GetSubscriberMethods` 数组长度确认
+   - **决议：** 保守限制在 ≤ 8 参数；实际上限由 Dalamud SDK 的 `GetSubscriberMethods` 数组长度决定。如果 `TryCreate` 因参数过多返回 false，则 → `ipc_missing`。MCP 工具描述中会注明建议 ≤ 8 个参数。
 
-2. **Phase 14 是否需要独立的测试桩增强？**
+2. **Phase 14 是否需要独立的测试桩增强？** RESOLVED
    - 已知：`FakeIpcGateway` + `FakeIpcCallGateSubscriber` 足以覆盖大部分测试
    - 不清楚：对于需要模拟 `InvokeFunc` 异常的场景，是否增强 `FakeIpcCallGateSubscriber` 还是直接用 NSubstitute mock 接口
-   - 建议：保持测试桩最小化——能覆盖异常场景的用 NSubstitute mock `IPluginCallGateSubscriber` 接口直接模拟，无需修改 Phase 11 的测试桩
+   - **决议：** 保持测试桩最小化——异常路径（`InvalidCastException`、`InvalidOperationException`、`TargetInvocationException`）使用 `NSubstitute.For<IPluginCallGateSubscriber>()` 直接 mock 接口，无需修改 Phase 11 的测试桩。成功路径继续使用 `FakeIpcGateway` + `FakeIpcCallGateSubscriber`。
 
 ---
 
